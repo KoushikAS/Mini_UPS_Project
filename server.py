@@ -3,19 +3,27 @@ import socket
 from google.protobuf.internal.decoder import _DecodeVarint32
 from google.protobuf.internal.encoder import _EncodeVarint
 
-from proto import world_ups_pb2
+from proto import world_ups_pb2, amazon_ups_pb2
 
 WORLD_HOST = "docker.for.mac.localhost"
 WORLD_PORT = 12345
 
+# UPS_HOST = "0.0.0.0"
+# UPS_PORT = 34567
 
-def send_to_world(world_socket: socket, msg):
+AMAZON_HOST = "docker.for.mac.localhost"
+AMAZON_PORT = 34567
+
+MAX_RETRY = 10
+
+
+def send_to_socket(world_socket: socket, msg):
     serialize_msg = msg.SerializeToString()
     _EncodeVarint(world_socket.send, len(serialize_msg), None)
     world_socket.send(serialize_msg)
 
 
-def recv_from_world(world_socket: socket) -> str:
+def recv_from_socket(world_socket: socket) -> str:
     var_int_buff = []
     while True:
         buf = world_socket.recv(1)
@@ -27,12 +35,12 @@ def recv_from_world(world_socket: socket) -> str:
 
 
 def create_in_world(UConnect):
-    for i in range(0, 10):
+    for i in range(0, MAX_RETRY):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as world_socket:
             world_socket.connect((WORLD_HOST, WORLD_PORT))
-            send_to_world(world_socket, UConnect)
+            send_to_socket(world_socket, UConnect)
             try:
-                msg = recv_from_world(world_socket)
+                msg = recv_from_socket(world_socket)
                 UConnected = world_ups_pb2.UConnected()
                 UConnected.ParseFromString(msg)
                 if UConnected.result == "connected!":
@@ -42,7 +50,7 @@ def create_in_world(UConnect):
             except:
                 print("World Simulator Error: Failed to create the world")
 
-    print("Failed to create the world " + str(UConnect.worldid) + " after 10 iteration")
+    print("Failed to create the world " + str(UConnect.worldid) + " after " + str(MAX_RETRY) + " iteration. exiting")
     exit()
 
 
@@ -76,8 +84,38 @@ def add_truck(world_id: int, truck_id: int):
     print("Successfully created truck with truck_id " + str(truck_id))
 
 
+def setup_world() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
+        amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
+
+        for i in range(0, MAX_RETRY):
+            world_id = create_new_world()
+
+            # sending world id to amazon
+            UtoAzConnect = amazon_ups_pb2.UtoAzConnect()
+            UtoAzConnect.worldid = world_id
+
+            send_to_socket(amazon_socket, UtoAzConnect)
+            try:
+                msg = recv_from_socket(amazon_socket)
+                AzConnected = amazon_ups_pb2.AzConnected()
+                AzConnected.ParseFromString(msg)
+
+                if AzConnected.result == "success":
+                    print("Amazon successfully joined the world")
+                    return world_id
+                else:
+                    print("Amazon failed to join the world.")
+            except:
+                print("Amazon Network Error: Amazon failed to join the world.")
+
+        print("Amazon is not able to join the world after " + str(MAX_RETRY) + " iteration. exiting")
+
+
 if __name__ == "__main__":
-    world_id = create_new_world()
-    add_truck(world_id, 1)
-    add_truck(world_id, 2)
+    setup_world()
+
+    # world_id = create_new_world()
+    # add_truck(world_id, 1)
+    # add_truck(world_id, 2)
     # add_truck(world_id, 1)
