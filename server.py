@@ -27,10 +27,9 @@ def recv_from_world(world_socket: socket) -> str:
 
 
 def create_in_world(UConnect):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as world_socket:
-        world_socket.connect((WORLD_HOST, WORLD_PORT))
-
-        for i in range(0, 10):
+    for i in range(0, 10):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as world_socket:
+            world_socket.connect((WORLD_HOST, WORLD_PORT))
             send_to_world(world_socket, UConnect)
             msg = recv_from_world(world_socket)
             UConnected = world_ups_pb2.UConnected()
@@ -40,8 +39,8 @@ def create_in_world(UConnect):
             else:
                 print("Failed to create in the world with error message " + str(UConnected.result))
 
-        print("Failed to create the world " + UConnect.worldid + " after 10 iteration")
-        exit()
+    print("Failed to create the world " + str(UConnect.worldid) + " after 10 iteration")
+    exit()
 
 
 def create_new_world() -> int:
@@ -78,5 +77,4 @@ if __name__ == "__main__":
     world_id = create_new_world()
     add_truck(world_id, 1)
     add_truck(world_id, 2)
-    #add_truck(world_id, 1)
-
+    add_truck(world_id, 1)
