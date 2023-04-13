@@ -31,13 +31,16 @@ def create_in_world(UConnect):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as world_socket:
             world_socket.connect((WORLD_HOST, WORLD_PORT))
             send_to_world(world_socket, UConnect)
-            msg = recv_from_world(world_socket)
-            UConnected = world_ups_pb2.UConnected()
-            UConnected.ParseFromString(msg)
-            if UConnected.result == "connected!":
-                return UConnected
-            else:
-                print("Failed to create in the world with error message " + str(UConnected.result))
+            try:
+                msg = recv_from_world(world_socket)
+                UConnected = world_ups_pb2.UConnected()
+                UConnected.ParseFromString(msg)
+                if UConnected.result == "connected!":
+                    return UConnected
+                else:
+                    print("Failed to create the world with error message " + str(UConnected.result))
+            except:
+                print("World Simulator Error: Failed to create the world")
 
     print("Failed to create the world " + str(UConnect.worldid) + " after 10 iteration")
     exit()
@@ -77,4 +80,4 @@ if __name__ == "__main__":
     world_id = create_new_world()
     add_truck(world_id, 1)
     add_truck(world_id, 2)
-    add_truck(world_id, 1)
+    # add_truck(world_id, 1)
