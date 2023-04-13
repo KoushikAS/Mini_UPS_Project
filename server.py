@@ -5,13 +5,15 @@ from google.protobuf.internal.encoder import _EncodeVarint
 
 from proto import world_ups_pb2, amazon_ups_pb2
 
-WORLD_HOST = "docker.for.mac.localhost"
+# WORLD_HOST = "docker.for.mac.localhost"
+WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 # UPS_HOST = "0.0.0.0"
 # UPS_PORT = 34567
 
-AMAZON_HOST = "docker.for.mac.localhost"
+# AMAZON_HOST = "docker.for.mac.localhost"
+AMAZON_HOST = "152.3.53.130"
 AMAZON_PORT = 34567
 
 MAX_RETRY = 10
@@ -86,8 +88,6 @@ def add_truck(world_id: int, truck_id: int):
 
 def setup_world() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
-
-
         for i in range(0, MAX_RETRY):
             try:
                 amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
