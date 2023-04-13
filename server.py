@@ -86,17 +86,19 @@ def add_truck(world_id: int, truck_id: int):
 
 def setup_world() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
-        amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
+
 
         for i in range(0, MAX_RETRY):
-            world_id = create_new_world()
-
-            # sending world id to amazon
-            UtoAzConnect = amazon_ups_pb2.UtoAzConnect()
-            UtoAzConnect.worldid = world_id
-
-            send_to_socket(amazon_socket, UtoAzConnect)
             try:
+                amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
+                world_id = create_new_world()
+
+                # sending world id to amazon
+                UtoAzConnect = amazon_ups_pb2.UtoAzConnect()
+                UtoAzConnect.worldid = world_id
+
+                send_to_socket(amazon_socket, UtoAzConnect)
+
                 msg = recv_from_socket(amazon_socket)
                 AzConnected = amazon_ups_pb2.AzConnected()
                 AzConnected.ParseFromString(msg)
