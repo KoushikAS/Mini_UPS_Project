@@ -1,0 +1,10 @@
+syntax = "proto2";
+
+message UtoAzConnect {
+	required int64 worldid = 1;
+}
+
+message AzConnected {
+	required int64 worldid = 1;
+    required string result = 2;
+}
