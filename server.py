@@ -2,11 +2,14 @@ import socket
 
 from google.protobuf.internal.decoder import _DecodeVarint32
 from google.protobuf.internal.encoder import _EncodeVarint
+from models.base import engine, Base, Session
+from models.truck import Truck
 
 from proto import world_ups_pb2, amazon_ups_pb2
 
+WORLD_HOST = "localhost"
 # WORLD_HOST = "docker.for.mac.localhost"
-WORLD_HOST = "152.3.53.130"
+# WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 # UPS_HOST = "0.0.0.0"
@@ -115,9 +118,20 @@ def setup_world() -> int:
 
 
 if __name__ == "__main__":
-    setup_world()
+    # setup_world()
+
+    # Base.metadata.create_all(engine)
+    # session = Session()
+    # for i in range(10):
+    #     truck = Truck()
+    #     session.add(truck)
+    #     session.commit()
+    #     print(truck.id)
+    # print("Added Truck")
 
     # world_id = create_new_world()
+    # for i in range(0,100):
+    #     add_truck(world_id, i)
     # add_truck(world_id, 1)
     # add_truck(world_id, 2)
     # add_truck(world_id, 1)

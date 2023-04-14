@@ -1,1 +1,3 @@
 protobuf
+psycopg2
+SQLAlchemy
