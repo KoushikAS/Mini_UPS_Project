@@ -6,7 +6,6 @@ from models.base import Base
 
 
 class TruckStatus(enum.Enum):
-    CREATE = 'create'
     IDLE = 'idle'
     TRAVELING = 'traveling'
     WAREHOUSE = 'arrive warehouse'
@@ -18,4 +17,5 @@ class Truck(Base):
     __tablename__ = 'truck'
 
     id = Column(Integer, primary_key=True)
-    status = Column(Enum(TruckStatus), default=TruckStatus.CREATE)
+    status = Column(Enum(TruckStatus), default=TruckStatus.TRAVELING)
+    world_id = Column(Integer)

@@ -23,8 +23,8 @@ services:
     command: python3 server.py
     volumes:
       - '.:/code'
-#    ports:
-#      - '12345:12345'
+    ports:
+      - '34567:34567'
     depends_on:
       - db
 volumes:
