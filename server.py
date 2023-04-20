@@ -228,12 +228,21 @@ def create_package(truck_id: int, ASendTruck):
 def receive_order(socket,world_id: int):
 
     #Receive package and warehouse from Amazon
-    print("Waiting to Receive from Amazon")
-    msg = recv_from_socket(socket)
-    print("Received Amazon")
+    # print("Waiting to Receive from Amazon")
+    # msg = recv_from_socket(socket)
+    # print("Received Amazon")
+    # AMessage = amazon_ups_pb2.AMessage()
+    # AMessage.ParseFromString(msg)
+
+    ASendTruck = amazon_ups_pb2.ASendTruck()
+    ASendTruck.package_id = 1
+    ASendTruck.warehouse_id = 1
+    ASendTruck.x = 1
+    ASendTruck.y = 1
+
     AMessage = amazon_ups_pb2.AMessage()
-    AMessage.ParseFromString(msg)
-    
+    AMessage.sendTruck = ASendTruck
+
     # Check if package can be clubbed to previous trucks and exit
     truck_id = get_truck_for_package(world_id)  # If not get a truck id
     print("Got Truck")
