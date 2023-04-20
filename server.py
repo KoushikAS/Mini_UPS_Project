@@ -240,6 +240,8 @@ def receive_order(socket,world_id: int):
     UTruckAtWH.package_id = package_id
     UTruckAtWH.warehouse_id = AMessage.sendTruck.warehouse_id
 
+    UMessage.truckAtWH = UTruckAtWH
+    send_to_socket(socket, UMessage)
 
 
 
