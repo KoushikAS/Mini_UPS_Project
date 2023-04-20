@@ -3,10 +3,9 @@ import threading
 
 from google.protobuf.internal.decoder import _DecodeVarint32
 from google.protobuf.internal.encoder import _EncodeVarint
-from sqlalchemy.orm import scoped_session
-from sqlalchemy.orm import sessionmaker
 
-from models.base import Base, engine
+
+from models.base import Base, engine, Session
 from models.item import Item
 from models.package import Package
 from models.truck import Truck, TruckStatus
@@ -14,15 +13,15 @@ from models.worldorder import WorldOrder, OrderType
 from proto import world_ups_pb2, amazon_ups_pb2
 
 # WORLD_HOST = "localhost"
-WORLD_HOST = "docker.for.mac.localhost"
-# WORLD_HOST = "152.3.53.130"
+#WORLD_HOST = "docker.for.mac.localhost"
+WORLD_HOST = "152.3.54.6"
 WORLD_PORT = 12345
 
 UPS_HOST = "0.0.0.0"
 UPS_PORT = 34567
 
 # AMAZON_HOST = "docker.for.mac.localhost"
-AMAZON_HOST = "152.3.53.130"
+AMAZON_HOST = "152.3.54.6"
 AMAZON_PORT = 34567
 
 MAX_RETRY = 10
@@ -66,9 +65,11 @@ def send_UConnect_request(UConnect):
 
 
 def send_UCommands_request(UCommands):
+    print("Seing U command request")
     for i in range(0, MAX_RETRY):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as world_socket:
             world_socket.connect((WORLD_HOST, WORLD_PORT))
+            print("sending")
             send_to_socket(world_socket, UCommands)
             try:
                 msg = recv_from_socket(world_socket)
@@ -199,6 +200,8 @@ def create_package(truck_id: int, ASendTruck):
     package = Package(ASendTruck.package_id, truck_id, ASendTruck.warehouse_id, ASendTruck.user_id, ASendTruck.x,
                       ASendTruck.y)
     session.add(package)
+    #tmp
+    id = package.id
     session.commit()
     for item in ASendTruck.items:
         i = Item(item.package_id, item.description, item.count)
@@ -207,37 +210,51 @@ def create_package(truck_id: int, ASendTruck):
 
     session.close()
 
+    return id
 
-def receive_order(world_id: int):
-    # tmp
-    ASendTruck = amazon_ups_pb2.ASendTruck()
-    ASendTruck.package_id = 1
-    ASendTruck.warehouse_id = 1
-    ASendTruck.x = 1
-    ASendTruck.y = 1
+
+def receive_order(socket,world_id: int):
+
+    msg = recv_from_socket(socket)
+    AMessage = amazon_ups_pb2.AMessage()
+    AMessage.ParseFromString(msg)
+
+
+    # ASendTruck = amazon_ups_pb2.ASendTruck()
+    # ASendTruck.package_id = 1
+    # ASendTruck.warehouse_id = 1
+    # ASendTruck.x = 1
+    # ASendTruck.y = 1
 
     # Create package
     # Send Response back to amazon
     # Check if package can be clubbed to previous trucks and exit
     truck_id = get_truck_for_package(world_id)  # If not get a truck id
-    create_package(truck_id, ASendTruck)
-    send_truck_to_warehouse(truck_id, 1, 1)  # send truck to warehouse
+    package_id = create_package(truck_id, AMessage.sendTruck)
+    send_truck_to_warehouse(truck_id, AMessage.sendTruck.warehouse_id, package_id)  # send truck to warehouse
+
     # send a message to Amazon saying that package has arrived.
+    UMessage = amazon_ups_pb2.UMessage()
+    UTruckAtWH = amazon_ups_pb2.UTruckAtWH()
+    UTruckAtWH.truck_id = truck_id
+    UTruckAtWH.package_id = package_id
+    UTruckAtWH.warehouse_id = AMessage.sendTruck.warehouse_id
 
 
-def handle_connection(conn, world_id: int):
+
+
+
+def handle_connection(socket, world_id: int):
     print("here")
-    with conn:
+    with socket:
         print("hey")
-        receive_order(world_id)
+        receive_order(socket, world_id)
 
 
 if __name__ == "__main__":
-    world_id = create_new_world()
-    # setup_world()
+    #world_id = create_new_world()
+    world_id = setup_world()
     Base.metadata.create_all(engine)
-    session_factory = sessionmaker(bind=engine)
-    Session = scoped_session(session_factory)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((UPS_HOST, UPS_PORT))
