@@ -4,7 +4,6 @@ import threading
 from google.protobuf.internal.decoder import _DecodeVarint32
 from google.protobuf.internal.encoder import _EncodeVarint
 
-
 from models.base import Base, engine, Session
 from models.item import Item
 from models.package import Package
@@ -13,15 +12,15 @@ from models.worldorder import WorldOrder, OrderType
 from proto import world_ups_pb2, amazon_ups_pb2
 
 # WORLD_HOST = "localhost"
-#WORLD_HOST = "docker.for.mac.localhost"
-WORLD_HOST = "152.3.53.130"
+WORLD_HOST = "docker.for.mac.localhost"
+# WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 UPS_HOST = "0.0.0.0"
 UPS_PORT = 34567
 
-# AMAZON_HOST = "docker.for.mac.localhost"
-AMAZON_HOST = "152.3.53.130"
+AMAZON_HOST = "docker.for.mac.localhost"
+# AMAZON_HOST = "152.3.53.130"
 AMAZON_PORT = 34567
 
 MAX_RETRY = 10
@@ -44,58 +43,61 @@ def recv_from_socket(world_socket: socket) -> str:
     return world_socket.recv(msg_len)
 
 
-def send_UConnect_request(UConnect):
+def send_UConnect_request(world_socket, UConnect):
+    if world_socket is None:
+        world_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        world_socket.connect((WORLD_HOST, WORLD_PORT))
+
     for i in range(0, MAX_RETRY):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as world_socket:
-            world_socket.connect((WORLD_HOST, WORLD_PORT))
-            send_to_socket(world_socket, UConnect)
-            try:
-                msg = recv_from_socket(world_socket)
-                UConnected = world_ups_pb2.UConnected()
-                UConnected.ParseFromString(msg)
-                if UConnected.result == "connected!":
-                    return UConnected
-                else:
-                    print("Failed to create the world with error message " + str(UConnected.result))
-            except Exception as e:
-                print("World Simulator Error: Failed to create the world with error " + str(e))
+        send_to_socket(world_socket, UConnect)
+        try:
+            msg = recv_from_socket(world_socket)
+            print("Here")
+            print(msg)
+            UConnected = world_ups_pb2.UConnected()
+            UConnected.ParseFromString(msg)
+            if UConnected.result == "connected!":
+                return world_socket, UConnected
+            else:
+                print("Failed to create the world with error message " + str(UConnected.result))
+        except Exception as e:
+            print("World Simulator Error: Failed to create the world with error " + str(e))
 
     print("Failed to create the world " + str(UConnect.worldid) + " after " + str(MAX_RETRY) + " iteration. exiting")
     exit()
 
 
-def send_UCommands_request(UCommands):
-    print("Seing U command request")
+def send_UCommands_request(world_socket, UCommands):
+    print("Sending U command request")
     for i in range(0, MAX_RETRY):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as world_socket:
-            world_socket.connect((WORLD_HOST, WORLD_PORT))
-            print("sending")
-            send_to_socket(world_socket, UCommands)
-            try:
-                msg = recv_from_socket(world_socket)
-                UResponses = world_ups_pb2.UResponses()
-                UResponses.ParseFromString(msg)
-                return UResponses
-            except Exception as e:
-                print("World Simulator Error: Failed to create the world with error " + str(e))
+        world_socket.connect((WORLD_HOST, WORLD_PORT))
+        print("sending")
+        send_to_socket(world_socket, UCommands)
+        try:
+            msg = recv_from_socket(world_socket)
+            UResponses = world_ups_pb2.UResponses()
+            UResponses.ParseFromString(msg)
+            return UResponses
+        except Exception as e:
+            print("World Simulator Error: Failed to create the world with error " + str(e))
 
     print("Failed to send UCommand after " + str(MAX_RETRY) + " iteration. exiting")
     exit()
 
 
-def create_new_world() -> int:
+def create_new_world() :
     print("Creating a new World")
 
     # creating a UConnect request with worldId = null
     UConnect = world_ups_pb2.UConnect()
     UConnect.isAmazon = False
 
-    UConnected = send_UConnect_request(UConnect)
+    world_socket, UConnected = send_UConnect_request(None, UConnect)
     print("Successfully created a new world with world_id " + str(UConnected.worldid))
-    return UConnected.worldid
+    return world_socket, UConnected.worldid
 
 
-def add_truck(world_id: int) -> int:
+def add_truck(world_socket, world_id: int) -> int:
     session = Session()
     truck = Truck()
     truck.world_id = world_id
@@ -116,7 +118,7 @@ def add_truck(world_id: int) -> int:
     UConnect.isAmazon = False
     UConnect.trucks.append(UInitTruck)
 
-    send_UConnect_request(UConnect)
+    send_UConnect_request(None, UConnect)
     print("Successfully created truck with truck_id " + str(truck_id))
     return truck.id
 
@@ -126,7 +128,7 @@ def setup_world() -> int:
         for i in range(0, MAX_RETRY):
             try:
                 amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
-                world_id = create_new_world()
+                world_socket, world_id = create_new_world()
 
                 # sending world id to amazon
                 UtoAzConnect = amazon_ups_pb2.UtoAzConnect()
@@ -141,12 +143,9 @@ def setup_world() -> int:
                 if AzConnected.result == "success":
                     print("Amazon successfully joined the world")
 
+                    # tmp
+                    receive_order(world_socket, amazon_socket, world_id)
 
-                    #tmp
-                    receive_order(amazon_socket,world_id)
-
-
-                    
                     return world_id
                 else:
                     print("Amazon failed to join the world.")
@@ -157,7 +156,7 @@ def setup_world() -> int:
         print("Amazon is not able to join the world after " + str(MAX_RETRY) + " iteration. exiting")
 
 
-def get_truck_for_package(world_id: int) -> int:
+def get_truck_for_package(world_socket, world_id: int) -> int:
     print("Searching for Truck")
     session = Session()
     truck = session.query(Truck) \
@@ -171,16 +170,16 @@ def get_truck_for_package(world_id: int) -> int:
         truck_id = truck.id
     else:
         print("Getting new Truck")
-        truck_id = add_truck(world_id)
+        truck_id = add_truck(world_socket, world_id)
     session.commit()
     session.close()
 
-    #truck_id = add_truck(world_id)
     return truck_id
 
 
-def send_truck_to_warehouse(truck_id: int, warehouse_id: int, package_id: int):
-    print("sending truck " + str(truck_id) + " to warehouse " + str(warehouse_id) + " to receive package " + str(package_id))
+def send_truck_to_warehouse(world_socket, truck_id: int, warehouse_id: int, package_id: int):
+    print("sending truck " + str(truck_id) + " to warehouse " + str(warehouse_id) + " to receive package " + str(
+        package_id))
     session = Session()
     order = WorldOrder(OrderType.DELIVERY, truck_id, package_id, warehouse_id)
     session.add(order)
@@ -196,7 +195,7 @@ def send_truck_to_warehouse(truck_id: int, warehouse_id: int, package_id: int):
 
     UCommands = world_ups_pb2.UCommands()
     UCommands.pickups.append(UGoPickup)
-    UResponses = send_UCommands_request(UCommands)
+    UResponses = send_UCommands_request(world_socket, UCommands)
 
     for error in UResponses.error:
         print(
@@ -211,10 +210,9 @@ def create_package(truck_id: int, ASendTruck):
 
     package = Package(ASendTruck.package_id, truck_id, ASendTruck.warehouse_id, ASendTruck.user_id, ASendTruck.x,
                       ASendTruck.y)
-    session.add(package)    
+    session.add(package)
     session.commit()
 
-    
     for item in ASendTruck.items:
         i = Item(ASendTruck.package_id, item.description, item.count)
         session.add(i)
@@ -225,9 +223,8 @@ def create_package(truck_id: int, ASendTruck):
     return ASendTruck.package_id
 
 
-def receive_order(socket,world_id: int):
-
-    #Receive package and warehouse from Amazon
+def receive_order(world_socket, amazon_socket, world_id: int):
+    # Receive package and warehouse from Amazon
     # print("Waiting to Receive from Amazon")
     # msg = recv_from_socket(socket)
     # print("Received Amazon")
@@ -241,10 +238,13 @@ def receive_order(socket,world_id: int):
     ASendTruck.y = 1
 
     AMessage = amazon_ups_pb2.AMessage()
-    AMessage.sendTruck = ASendTruck
+    AMessage.sendTruck.package_id = 1
+    AMessage.sendTruck.warehouse_id = 1
+    AMessage.sendTruck.x = 1
+    AMessage.sendTruck.y = 1
 
     # Check if package can be clubbed to previous trucks and exit
-    truck_id = get_truck_for_package(world_id)  # If not get a truck id
+    truck_id = get_truck_for_package(world_socket, world_id)  # If not get a truck id
     print("Got Truck")
 
     # Create package
@@ -262,10 +262,8 @@ def receive_order(socket,world_id: int):
 
     UMessage.truckAtWH = UTruckAtWH
     print("Sending Truck at WH to Amazon")
-    send_to_socket(socket, UMessage)
+    send_to_socket(amazon_socket, UMessage)
     print("Sent")
-
-
 
 
 def handle_connection(socket, world_id: int):
@@ -279,7 +277,9 @@ if __name__ == "__main__":
     Base.metadata.create_all(engine)
     world_id = setup_world()
 
-    
+    # world_socket, world_id = create_new_world()
+    # receive_order(world_socket, None, world_id)
+
     '''
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((UPS_HOST, UPS_PORT))
