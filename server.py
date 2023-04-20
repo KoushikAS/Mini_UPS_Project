@@ -174,6 +174,8 @@ def get_truck_for_package(world_id: int) -> int:
         truck_id = add_truck(world_id)
     session.commit()
     session.close()
+
+    #truck_id = add_truck(world_id)
     return truck_id
 
 
@@ -209,18 +211,18 @@ def create_package(truck_id: int, ASendTruck):
 
     package = Package(ASendTruck.package_id, truck_id, ASendTruck.warehouse_id, ASendTruck.user_id, ASendTruck.x,
                       ASendTruck.y)
-    session.add(package)
-    #tmp
-    id = package.id
+    session.add(package)    
     session.commit()
+
+    
     for item in ASendTruck.items:
-        i = Item(item.package_id, item.description, item.count)
+        i = Item(ASendTruck.package_id, item.description, item.count)
         session.add(i)
         session.commit()
 
     session.close()
 
-    return id
+    return ASendTruck.package_id
 
 
 def receive_order(socket,world_id: int):
@@ -231,14 +233,15 @@ def receive_order(socket,world_id: int):
     print("Received Amazon")
     AMessage = amazon_ups_pb2.AMessage()
     AMessage.ParseFromString(msg)
-
-    # Create package
-    package_id = create_package(truck_id, AMessage.sendTruck)
-    print("Package Recevied")
     
     # Check if package can be clubbed to previous trucks and exit
     truck_id = get_truck_for_package(world_id)  # If not get a truck id
     print("Got Truck")
+
+    # Create package
+    package_id = create_package(truck_id, AMessage.sendTruck)
+    print("Package Recevied")
+
     send_truck_to_warehouse(truck_id, AMessage.sendTruck.warehouse_id, package_id)  # send truck to warehouse
     print("Sent Truck")
     # send a message to Amazon saying that package has arrived.
@@ -264,12 +267,11 @@ def handle_connection(socket, world_id: int):
 
 
 if __name__ == "__main__":
-    #world_id = create_new_world()
+    Base.metadata.create_all(engine)
     world_id = setup_world()
 
+    
     '''
-    Base.metadata.create_all(engine)
-
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((UPS_HOST, UPS_PORT))
         s.listen()
