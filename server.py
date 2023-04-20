@@ -14,14 +14,14 @@ from proto import world_ups_pb2, amazon_ups_pb2
 
 # WORLD_HOST = "localhost"
 #WORLD_HOST = "docker.for.mac.localhost"
-WORLD_HOST = "152.3.54.6"
+WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 UPS_HOST = "0.0.0.0"
 UPS_PORT = 34567
 
 # AMAZON_HOST = "docker.for.mac.localhost"
-AMAZON_HOST = "152.3.54.6"
+AMAZON_HOST = "152.3.53.130"
 AMAZON_PORT = 34567
 
 MAX_RETRY = 10
@@ -140,16 +140,25 @@ def setup_world() -> int:
 
                 if AzConnected.result == "success":
                     print("Amazon successfully joined the world")
+
+
+                    #tmp
+                    receive_order(amazon_socket,world_id)
+
+
+                    
                     return world_id
                 else:
                     print("Amazon failed to join the world.")
-            except:
+            except Exception as e:
                 print("Amazon Network Error: Amazon failed to join the world.")
+                print(str(e))
 
         print("Amazon is not able to join the world after " + str(MAX_RETRY) + " iteration. exiting")
 
 
 def get_truck_for_package(world_id: int) -> int:
+    print("Searching for Truck")
     session = Session()
     truck = session.query(Truck) \
         .filter(Truck.status == TruckStatus.IDLE, world_id == world_id) \
@@ -161,6 +170,7 @@ def get_truck_for_package(world_id: int) -> int:
         truck.status = TruckStatus.TRAVELING
         truck_id = truck.id
     else:
+        print("Getting new Truck")
         truck_id = add_truck(world_id)
     session.commit()
     session.close()
@@ -215,24 +225,22 @@ def create_package(truck_id: int, ASendTruck):
 
 def receive_order(socket,world_id: int):
 
+    #Receive package and warehouse from Amazon
+    print("Waiting to Receive from Amazon")
     msg = recv_from_socket(socket)
+    print("Received Amazon")
     AMessage = amazon_ups_pb2.AMessage()
     AMessage.ParseFromString(msg)
 
-
-    # ASendTruck = amazon_ups_pb2.ASendTruck()
-    # ASendTruck.package_id = 1
-    # ASendTruck.warehouse_id = 1
-    # ASendTruck.x = 1
-    # ASendTruck.y = 1
-
     # Create package
-    # Send Response back to amazon
+    package_id = create_package(truck_id, AMessage.sendTruck)
+    print("Package Recevied")
+    
     # Check if package can be clubbed to previous trucks and exit
     truck_id = get_truck_for_package(world_id)  # If not get a truck id
-    package_id = create_package(truck_id, AMessage.sendTruck)
+    print("Got Truck")
     send_truck_to_warehouse(truck_id, AMessage.sendTruck.warehouse_id, package_id)  # send truck to warehouse
-
+    print("Sent Truck")
     # send a message to Amazon saying that package has arrived.
     UMessage = amazon_ups_pb2.UMessage()
     UTruckAtWH = amazon_ups_pb2.UTruckAtWH()
@@ -241,7 +249,9 @@ def receive_order(socket,world_id: int):
     UTruckAtWH.warehouse_id = AMessage.sendTruck.warehouse_id
 
     UMessage.truckAtWH = UTruckAtWH
+    print("Sending Truck at WH to Amazon")
     send_to_socket(socket, UMessage)
+    print("Sent")
 
 
 
@@ -256,6 +266,8 @@ def handle_connection(socket, world_id: int):
 if __name__ == "__main__":
     #world_id = create_new_world()
     world_id = setup_world()
+
+    '''
     Base.metadata.create_all(engine)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -267,7 +279,7 @@ if __name__ == "__main__":
             # Create a new thread to handle the connection
             t = threading.Thread(target=handle_connection, args=(conn, world_id))
             t.start()
-
+    '''
     # Base.metadata.create_all(engine)
     # session = Session()
     # for i in range(10):
