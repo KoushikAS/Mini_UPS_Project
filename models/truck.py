@@ -18,4 +18,3 @@ class Truck(Base):
 
     id = Column(Integer, primary_key=True)
     status = Column(Enum(TruckStatus), default=TruckStatus.TRAVELING)
-    world_id = Column(Integer)
