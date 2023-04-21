@@ -12,8 +12,8 @@ from models.worldorder import WorldOrder, OrderType
 from proto import world_ups_pb2, amazon_ups_pb2
 
 # WORLD_HOST = "localhost"
-WORLD_HOST = "docker.for.mac.localhost"
-# WORLD_HOST = "152.3.53.130"
+#WORLD_HOST = "docker.for.mac.localhost"
+WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 UPS_HOST = "0.0.0.0"
@@ -212,19 +212,19 @@ def create_package(truck_id: int, ASendTruck):
 
 
 def receive_package(world_socket, amazon_socket, world_id: int):
-    # #Receive package and warehouse from Amazon
-    # print("Waiting to Receive from Amazon")
-    # msg = recv_from_socket(amazon_socket)
-    # print("Received Amazon")
-    # AMessage = amazon_ups_pb2.AMessage()
-    # AMessage.ParseFromString(msg)
-
+    #Receive package and warehouse from Amazon
+    print("Waiting to Receive from Amazon")
+    msg = recv_from_socket(amazon_socket)
+    print("Received Amazon")
     AMessage = amazon_ups_pb2.AMessage()
-    AMessage.sendTruck.package_id = 1
-    AMessage.sendTruck.warehouse_id = 1
-    AMessage.sendTruck.user_id = 1
-    AMessage.sendTruck.x = 1
-    AMessage.sendTruck.y = 1
+    AMessage.ParseFromString(msg)
+
+    # AMessage = amazon_ups_pb2.AMessage()
+    # AMessage.sendTruck.package_id = 1
+    # AMessage.sendTruck.warehouse_id = 1
+    # AMessage.sendTruck.user_id = 1
+    # AMessage.sendTruck.x = 1
+    # AMessage.sendTruck.y = 1
 
     # Check if package can be clubbed to previous trucks and exit
     truck_id = get_truck_for_package()  # If not get a truck id
