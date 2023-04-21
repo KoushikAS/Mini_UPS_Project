@@ -17,4 +17,4 @@ class Truck(Base):
     __tablename__ = 'truck'
 
     id = Column(Integer, primary_key=True)
-    status = Column(Enum(TruckStatus), default=TruckStatus.TRAVELING)
+    status = Column(Enum(TruckStatus), default=TruckStatus.IDLE)
