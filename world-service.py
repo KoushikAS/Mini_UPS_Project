@@ -8,7 +8,7 @@ from google.protobuf.internal.encoder import _EncodeVarint
 
 from models.base import Base, engine, Session
 from models.item import Item
-from models.package import Package
+from models.package import Package, PackageStatus
 from models.truck import Truck, TruckStatus
 from models.worldorder import WorldOrder, OrderType, OrderStatus
 from proto import world_ups_pb2, amazon_ups_pb2
@@ -157,6 +157,14 @@ def setup_world_with_amazon():
 
 
 def prepare_UGoPickupRequest(order):
+    session = Session()
+    package = session.query(Package) \
+        .filter(Package.packageId == order.packageId) \
+        .with_for_update() \
+        .scalar()
+    package.status = PackageStatus.WAREHOUSE
+    session.commit()
+
     UGoPickup = world_ups_pb2.UGoPickup()
     UGoPickup.truckid = order.truckId
     UGoPickup.whid = order.warehouseId
@@ -164,6 +172,36 @@ def prepare_UGoPickupRequest(order):
 
     return UGoPickup
 
+
+def prepare_UGoDeliver(order):
+    session = Session()
+    package = session.query(Package) \
+        .filter(Package.packageId == order.packageId) \
+        .with_for_update() \
+        .scalar()
+    package.status = PackageStatus.DELIVERY
+    session.commit()
+
+    UDeliveryLocation = world_ups_pb2.UDeliveryLocation()
+
+    UDeliveryLocation.packageid = order.packageId
+    UDeliveryLocation.x = package.x
+    UDeliveryLocation.y = package.y
+
+    UGoDeliver = world_ups_pb2.UGoDeliver()
+    UGoDeliver.truckid = order.truckId
+    UGoDeliver.packages.append(UDeliveryLocation)
+    UGoDeliver.seqnum = order.seqNo
+
+    truck = session.query(Truck) \
+        .filter(Truck.id == order.truckId) \
+        .with_for_update() \
+        .scalar()
+
+    truck.status = TruckStatus.DELIVERING
+    session.commit()
+
+    return UGoDeliver
 
 def prepare_UCommandsRequest(acks):
     session = Session()
@@ -181,6 +219,8 @@ def prepare_UCommandsRequest(acks):
     for order in orders:
         if order.orderType == OrderType.PICKUP:
             UCommands.pickups.append(prepare_UGoPickupRequest(order))
+        elif order.orderType == OrderType.DELIVERY:
+            UCommands.deliveries.append(prepare_UGoDeliver(order))
         else:
             pass
 
@@ -210,28 +250,36 @@ def handle_UFinished(UFinished):
     print("U finished msg response ")
     print(UFinished)
 
-    session = Session()
+    if UFinished.status == "arrive warehouse":
+        session = Session()
 
-    truck = session.query(Truck) \
-        .filter(Truck.id == UFinished.truckid) \
-        .with_for_update() \
-        .scalar()
-
-    if truck.status == "arrive warehouse":
         orders = session.query(WorldOrder) \
-            .filter(and_(WorldOrder.orderType == OrderType.PICKUP ,and_(WorldOrder.truckId == truck.truckid, or_(WorldOrder.status == OrderStatus.ACTIVE, WorldOrder.status == OrderStatus.SENT)))) \
+            .filter(and_(WorldOrder.orderType == OrderType.PICKUP ,and_(WorldOrder.truckId == UFinished.truckid, or_(WorldOrder.status == OrderStatus.ACTIVE, WorldOrder.status == OrderStatus.SENT)))) \
             .with_for_update()
 
         for order in orders:
             call_TruckAtWH(order)
             order.status = WorldOrder.COMPLETE
 
+            package = session.query(Package) \
+                .filter(Package.packageId == order.packageId) \
+                .with_for_update() \
+                .scalar()
+
+            package.status = PackageStatus.LOADING
+
+        session.commit()
+
+        truck = session.query(Truck) \
+            .filter(Truck.id == UFinished.truckid) \
+            .with_for_update() \
+            .scalar()
+
+        truck.status = TruckStatus.WAREHOUSE
         session.commit()
     else:
         pass
 
-    order.status = OrderStatus.COMPLETE
-    session.commit()
 
 
 def handle_Ack(ack):

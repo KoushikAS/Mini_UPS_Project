@@ -5,7 +5,7 @@ from google.protobuf.internal.decoder import _DecodeVarint32
 
 from models.base import Base, engine, Session
 from models.item import Item
-from models.package import Package
+from models.package import Package, PackageStatus
 from models.truck import Truck, TruckStatus
 from models.worldorder import WorldOrder, OrderType
 from proto import amazon_ups_pb2
@@ -94,11 +94,14 @@ def handle_connection(conn):
             create_package(truck_id, AMessage.sendTruck)
             print("created Package")
 
-        else:
+        elif AMessage.HasField('truckLoaded'):
             order_type = OrderType.DELIVERY
             truck_id = AMessage.truckLoaded.truck_id
             warehouse_id = AMessage.truckLoaded.warehouse_id
             package_id = AMessage.truckLoaded.package_id
+        else:
+            print("Wrong A Message")
+            return
 
         session = Session()
         order = WorldOrder(order_type, truck_id, package_id, warehouse_id)
