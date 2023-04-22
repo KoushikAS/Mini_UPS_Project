@@ -22,7 +22,7 @@ AMAZON_HOST = "152.3.53.130"
 AMAZON_PORT = 34567
 
 MAX_RETRY = 10
-
+from sqlalchemy import and_, or_
 
 def send_to_socket(socket: socket, msg):
     serialize_msg = msg.SerializeToString()
@@ -198,15 +198,26 @@ def call_TruckAtWH(order):
 
 
 def handle_UFinished(UFinished):
+    print("U finished msg response ")
+    print(UFinished)
+
     session = Session()
 
-    order = session.query(WorldOrder) \
-        .filter(WorldOrder.seqNo == UFinished.seqnum) \
+    truck = session.query(Truck) \
+        .filter(Truck.id == UFinished.truckid) \
         .with_for_update() \
         .scalar()
 
-    if order.orderType == OrderType.PICKUP:
-        call_TruckAtWH(order)
+    if truck.status == "arrive warehouse":
+        orders = session.query(WorldOrder) \
+            .filter(and_(WorldOrder.truckId == truck.truckid, or_(WorldOrder.status == OrderStatus.ACTIVE, WorldOrder.status == OrderStatus.SENT))) \
+            .with_for_update()
+
+        for order in orders:
+            call_TruckAtWH(order)
+            order.status = WorldOrder.COMPLETE
+
+        session.commit()
     else:
         pass
 
@@ -288,6 +299,9 @@ if __name__ == "__main__":
         UResponses = receive_UResponse(world_socket)
 
         if UResponses is not None:
+
+            for ack in UResponses.acks:
+                handle_Ack(ack)
 
             for completion in UResponses.completions:
                 handle_UFinished(completion)
