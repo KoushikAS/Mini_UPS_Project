@@ -58,6 +58,17 @@ def send_UCommands_request(world_socket, UCommands):
     exit()
 
 
+def receive_UResponse(world_socket):
+    try:
+        msg = recv_from_socket(world_socket)
+        UResponses = world_ups_pb2.UResponses()
+        UResponses.ParseFromString(msg)
+        return UResponses
+    except Exception as e:
+        print("World Simulator Error: Failed to create the world with error " + str(e))
+        return None
+
+
 def create_in_world(world_socket, UConnect):
     for i in range(0, MAX_RETRY):
         send_to_socket(world_socket, UConnect)
@@ -145,15 +156,15 @@ def prepare_UGoPickupRequest(order):
     return UGoPickup
 
 
-def prepare_UCommandsRequest():
+def prepare_UCommandsRequest(acks):
     session = Session()
 
     orders = session.query(WorldOrder) \
-        .filter(WorldOrder.status == OrderStatus.ACTIVE) \
-        .with_for_update()
+        .filter(WorldOrder.status == OrderStatus.ACTIVE)
 
-    if orders.first() is None:
+    if orders.first() is None and len(acks) == 0:
         print("No new command")
+        session.close()
         return None
 
     UCommands = world_ups_pb2.UCommands()
@@ -163,11 +174,72 @@ def prepare_UCommandsRequest():
             UCommands.pickups.append(prepare_UGoPickupRequest(order))
         else:
             pass
+
+    for ack in acks:
+        UCommands.acks.append(ack)
+
+    session.close()
+    return UCommands
+
+
+def call_TruckAtWH(order):
+    # send a message to Amazon saying that Truck has arrived.
+
+    UMessage = amazon_ups_pb2.UMessage()
+    UMessage.truckAtWH.truck_id = order.truck_id
+    UMessage.truckAtWH.package_id = order.package_id
+    UMessage.truckAtWH.warehouse_id = order.warehouse_id
+
+    print("Send the Truck at Warehouse to Amazon")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
+        amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
+        send_to_socket(amazon_socket, UMessage)
+    print("Sent to Amazon")
+
+
+def handle_UFinished(UFinished):
+    session = Session()
+
+    order = session.query(WorldOrder) \
+        .filter(WorldOrder.seqNo == UFinished.seqnum) \
+        .with_for_update() \
+        .scalar()
+
+    if order.orderType == OrderType.PICKUP:
+        call_TruckAtWH(order)
+    else:
+        pass
+
+    order.status = OrderStatus.COMPLETE
+    session.commit()
+
+
+def handle_Ack(ack):
+    session = Session()
+
+    order = session.query(WorldOrder) \
+        .filter(WorldOrder.seqNo == ack) \
+        .with_for_update() \
+        .scalar()
+
+    # Only marking it as Sent if it is Active and not if it is already complete
+    if order.status == OrderStatus.ACTIVE:
         order.status = OrderStatus.SENT
-        session.add(order)
 
     session.commit()
-    return UCommands
+
+
+def handle_UErr(UErr):
+    session = Session()
+
+    order = session.query(WorldOrder) \
+        .filter(WorldOrder.seqNo == UErr.originseqnum) \
+        .with_for_update() \
+        .scalar()
+
+    order.status = OrderStatus.ERROR
+    order.errorDescription = UErr.err
+    session.commit()
 
 
 # def receive_package(world_socket, amazon_socket, world_id: int):
@@ -200,19 +272,32 @@ if __name__ == "__main__":
     world_id = create_new_world(world_socket)
     # setup_world_with_amazon()
 
+    messages_to_be_acked = []
+
     while True:
         print("Starting a new cycle")
-        UCommands = prepare_UCommandsRequest()
+        UCommands = prepare_UCommandsRequest(messages_to_be_acked)
 
         if UCommands is not None:
-            UResponses = send_UCommands_request(world_socket, UCommands)
+            print("Sending U Command request")
+            send_to_socket(world_socket, UCommands)
+            messages_to_be_acked.clear()
+        else:
+            print("No new command ")
+
+        UResponses = receive_UResponse(world_socket)
+
+        if UResponses is not None:
+
+            for completion in UResponses.completions:
+                handle_UFinished(completion)
+                messages_to_be_acked.append(completion.seqnum)
 
             for error in UResponses.error:
+                handle_UErr(error)
+                messages_to_be_acked.append(error.seqnum)
                 print(
                     "Error with message " + str(error.err) + " original sequence no " + str(
                         error.originseqnum) + " sequence no " + str(error.seqnum))
 
-        else:
-            print("No new command ")
-
-        time.sleep(15)  # Sleep for 5 seconds
+        time.sleep(5)  # Sleep for 5 seconds

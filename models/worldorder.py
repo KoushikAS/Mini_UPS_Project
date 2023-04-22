@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, Integer, ForeignKey, Enum
+from sqlalchemy import Column, Integer, ForeignKey, Enum, String
 from sqlalchemy.orm import relationship
 
 from models.base import Base
@@ -16,6 +16,7 @@ class OrderStatus(enum.Enum):
     ACTIVE = 'active'
     SENT = 'sent'
     COMPLETE = 'complete'
+    ERROR = 'error'
 
 
 class WorldOrder(Base):
@@ -32,6 +33,7 @@ class WorldOrder(Base):
     package = relationship("Package")
 
     warehouseId = Column(Integer)
+    errorDescription = Column(String)
 
     def __init__(self, orderType, truckId, packageId, warehouseId):
         self.orderType = orderType
