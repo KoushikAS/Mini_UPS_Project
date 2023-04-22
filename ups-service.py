@@ -56,7 +56,7 @@ def create_package(truck_id: int, ASendTruck):
     session = Session()
 
     if not ASendTruck.HasField("user_id"):
-        ASendTruck.user_id = -1
+        ASendTruck.user_id = None
 
     package = Package(ASendTruck.package_id, truck_id, ASendTruck.warehouse_id, ASendTruck.user_id, ASendTruck.x,
                       ASendTruck.y)
@@ -101,7 +101,7 @@ def handle_connection(conn):
             package_id = AMessage.truckLoaded.package_id
 
         session = Session()
-        order = WorldOrder(order_type, truck_id, warehouse_id, package_id)
+        order = WorldOrder(order_type, truck_id, package_id, warehouse_id)
         session.add(order)
         session.commit()
 

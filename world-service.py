@@ -1,6 +1,7 @@
 import socket
 import threading
 import time
+import select
 
 from google.protobuf.internal.decoder import _DecodeVarint32
 from google.protobuf.internal.encoder import _EncodeVarint
@@ -20,6 +21,8 @@ WORLD_PORT = 12345
 # AMAZON_HOST = "docker.for.mac.localhost"
 AMAZON_HOST = "152.3.53.130"
 AMAZON_PORT = 34567
+
+TIMEOUT = 5.0 # 5 second
 
 MAX_RETRY = 10
 from sqlalchemy import and_, or_
@@ -59,6 +62,12 @@ def send_UCommands_request(world_socket, UCommands):
 
 
 def receive_UResponse(world_socket):
+    read_sockets, write_sockets, error_sockets = select.select([world_socket], [], [], TIMEOUT)
+
+    if world_socket not in read_sockets :
+        print("No message received from the socket")
+        return
+
     try:
         msg = recv_from_socket(world_socket)
         UResponses = world_ups_pb2.UResponses()
@@ -210,7 +219,7 @@ def handle_UFinished(UFinished):
 
     if truck.status == "arrive warehouse":
         orders = session.query(WorldOrder) \
-            .filter(and_(WorldOrder.truckId == truck.truckid, or_(WorldOrder.status == OrderStatus.ACTIVE, WorldOrder.status == OrderStatus.SENT))) \
+            .filter(and_(WorldOrder.orderType == OrderType.PICKUP ,and_(WorldOrder.truckId == truck.truckid, or_(WorldOrder.status == OrderStatus.ACTIVE, WorldOrder.status == OrderStatus.SENT)))) \
             .with_for_update()
 
         for order in orders:

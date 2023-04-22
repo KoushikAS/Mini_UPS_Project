@@ -14,7 +14,7 @@ def send_to_socket(socket: socket, msg):
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     AMessage = amazon_ups_pb2.AMessage()
-    AMessage.sendTruck.package_id = 1
+    AMessage.sendTruck.package_id = 10
     AMessage.sendTruck.warehouse_id = 1
     AMessage.sendTruck.user_id = 1
     AMessage.sendTruck.x = 1
