@@ -14,6 +14,7 @@ class OrderType(enum.Enum):
 
 class OrderStatus(enum.Enum):
     ACTIVE = 'active'
+    SENT = 'sent'
     COMPLETE = 'complete'
 
 

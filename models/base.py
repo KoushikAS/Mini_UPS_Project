@@ -18,7 +18,6 @@ except SQLAlchemyError as err:
 
 m = MetaData()
 m.reflect(engine)
-m.drop_all(engine)
 
 Base = declarative_base()
 session_fact = sessionmaker(bind=engine)
