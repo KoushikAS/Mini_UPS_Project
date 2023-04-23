@@ -1,13 +1,11 @@
-import socket
-import threading
-import time
 import select
+import socket
+import time
 
 from google.protobuf.internal.decoder import _DecodeVarint32
 from google.protobuf.internal.encoder import _EncodeVarint
 
 from models.base import Base, engine, Session
-from models.item import Item
 from models.package import Package, PackageStatus
 from models.truck import Truck, TruckStatus
 from models.worldorder import WorldOrder, OrderType, OrderStatus
@@ -20,12 +18,13 @@ WORLD_PORT = 12345
 
 # AMAZON_HOST = "docker.for.mac.localhost"
 AMAZON_HOST = "152.3.53.130"
-AMAZON_PORT = 34567
+AMAZON_PORT = 6543
 
-TIMEOUT = 5.0 # 5 second
+TIMEOUT = 5.0  # 5 second
 
 MAX_RETRY = 10
 from sqlalchemy import and_, or_
+
 
 def send_to_socket(socket: socket, msg):
     serialize_msg = msg.SerializeToString()
@@ -64,7 +63,7 @@ def send_UCommands_request(world_socket, UCommands):
 def receive_UResponse(world_socket):
     read_sockets, write_sockets, error_sockets = select.select([world_socket], [], [], TIMEOUT)
 
-    if world_socket not in read_sockets :
+    if world_socket not in read_sockets:
         print("No message received from the socket")
         return
 
@@ -152,6 +151,7 @@ def setup_world_with_amazon():
             except Exception as e:
                 print("Amazon Network Error: Amazon failed to join the world.")
                 print(str(e))
+                time.sleep(10)  # Sleep for 10 seconds
 
     print("Amazon is not able to join the world after " + str(MAX_RETRY) + " iteration. exiting")
 
@@ -202,6 +202,7 @@ def prepare_UGoDeliver(order):
     session.commit()
 
     return UGoDeliver
+
 
 def prepare_UCommandsRequest(acks):
     session = Session()
@@ -254,7 +255,9 @@ def handle_UFinished(UFinished):
         session = Session()
 
         orders = session.query(WorldOrder) \
-            .filter(and_(WorldOrder.orderType == OrderType.PICKUP ,and_(WorldOrder.truckId == UFinished.truckid, or_(WorldOrder.status == OrderStatus.ACTIVE, WorldOrder.status == OrderStatus.SENT)))) \
+            .filter(and_(WorldOrder.orderType == OrderType.PICKUP, and_(WorldOrder.truckId == UFinished.truckid,
+                                                                        or_(WorldOrder.status == OrderStatus.ACTIVE,
+                                                                            WorldOrder.status == OrderStatus.SENT)))) \
             .with_for_update()
 
         for order in orders:
@@ -277,9 +280,10 @@ def handle_UFinished(UFinished):
 
         truck.status = TruckStatus.WAREHOUSE
         session.commit()
+    elif UFinished.status == "arrive warehouse":
+        pass
     else:
         pass
-
 
 
 def handle_Ack(ack):
@@ -310,35 +314,13 @@ def handle_UErr(UErr):
     session.commit()
 
 
-# def receive_package(world_socket, amazon_socket, world_id: int):
-#     # Receive package and warehouse from Amazon
-#     print("Waiting to Receive from Amazon")
-#     msg = recv_from_socket(amazon_socket)
-#     print("Received Amazon")
-#     AMessage = amazon_ups_pb2.AMessage()
-#     AMessage.ParseFromString(msg)
-#
-#     prepare_UGoPickup(world_socket, truck_id, AMessage.sendTruck.warehouse_id,
-#                       package_id)  # send truck to warehouse
-#     print("Sent Truck")
-#     # send a message to Amazon saying that package has arrived.
-#     UMessage = amazon_ups_pb2.UMessage()
-#     UMessage.truckAtWH.truck_id = truck_id
-#     UMessage.truckAtWH.package_id = package_id
-#     UMessage.truckAtWH.warehouse_id = AMessage.sendTruck.warehouse_id
-#
-#     print("Sending Truck at WH to Amazon")
-#     send_to_socket(amazon_socket, UMessage)
-#     print("Sent")
-
-
 if __name__ == "__main__":
     Base.metadata.create_all(engine)
     world_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     world_socket.connect((WORLD_HOST, WORLD_PORT))
 
     world_id = create_new_world(world_socket)
-    # setup_world_with_amazon()
+    setup_world_with_amazon()
 
     messages_to_be_acked = []
 
