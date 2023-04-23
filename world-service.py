@@ -8,6 +8,7 @@ from google.protobuf.internal.encoder import _EncodeVarint
 from models.base import Base, engine, Session
 from models.package import Package, PackageStatus
 from models.truck import Truck, TruckStatus
+from models.users import Users
 from models.worldorder import WorldOrder, OrderType, OrderStatus
 from proto import world_ups_pb2, amazon_ups_pb2
 
@@ -316,6 +317,7 @@ def handle_UErr(UErr):
 
 if __name__ == "__main__":
     Base.metadata.create_all(engine)
+
     world_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     world_socket.connect((WORLD_HOST, WORLD_PORT))
 

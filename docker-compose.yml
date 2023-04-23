@@ -34,5 +34,12 @@ services:
       - '.:/code'
     depends_on:
       - db
+  webapp:
+    build: ./ups-webapp
+    command: npm start
+    ports:
+      - '4000:4000'
+    depends_on:
+      - db
 volumes:
   data-volume: null
