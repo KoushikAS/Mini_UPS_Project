@@ -320,7 +320,7 @@ if __name__ == "__main__":
     world_socket.connect((WORLD_HOST, WORLD_PORT))
 
     world_id = create_new_world(world_socket)
-    setup_world_with_amazon()
+    # setup_world_with_amazon()
 
     messages_to_be_acked = []
 
@@ -353,4 +353,4 @@ if __name__ == "__main__":
                     "Error with message " + str(error.err) + " original sequence no " + str(
                         error.originseqnum) + " sequence no " + str(error.seqnum))
 
-        time.sleep(5)  # Sleep for 5 seconds
+        time.sleep(10)  # Sleep for 5 seconds

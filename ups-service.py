@@ -1,5 +1,6 @@
 import threading
 import socket
+import time
 
 from google.protobuf.internal.decoder import _DecodeVarint32
 
@@ -73,56 +74,69 @@ def create_package(truck_id: int, ASendTruck):
     return ASendTruck.package_id
 
 
-def handle_connection(conn):
+def handle_connection(AMessage):
     print("here")
-    with conn:
-        msg = recv_from_socket(conn)
-        print(msg)
-        AMessage = amazon_ups_pb2.AMessage()
-        AMessage.ParseFromString(msg)
+    if AMessage.HasField('sendTruck'):
+        order_type = OrderType.PICKUP
+        warehouse_id = AMessage.sendTruck.warehouse_id
+        package_id = AMessage.sendTruck.package_id
 
-        if AMessage.HasField('sendTruck'):
-            order_type = OrderType.PICKUP
-            warehouse_id = AMessage.sendTruck.warehouse_id
-            package_id = AMessage.sendTruck.package_id
+        # Check if package can be clubbed to previous trucks and exit
+        truck_id = get_truck_for_package()  # If not get a truck id
+        print("Got Truck")
 
-            # Check if package can be clubbed to previous trucks and exit
-            truck_id = get_truck_for_package()  # If not get a truck id
-            print("Got Truck")
+        # create Package
+        create_package(truck_id, AMessage.sendTruck)
+        print("created Package")
+    elif AMessage.HasField('truckLoaded'):
+        order_type = OrderType.DELIVERY
+        truck_id = AMessage.truckLoaded.truck_id
+        warehouse_id = AMessage.truckLoaded.warehouse_id
+        package_id = AMessage.truckLoaded.package_id
+    else:
+        print("Wrong A Message")
+        return
 
-            # create Package
-            create_package(truck_id, AMessage.sendTruck)
-            print("created Package")
+    session = Session()
+    order = WorldOrder(order_type, truck_id, package_id, warehouse_id)
+    session.add(order)
+    session.commit()
 
-        elif AMessage.HasField('truckLoaded'):
-            order_type = OrderType.DELIVERY
-            truck_id = AMessage.truckLoaded.truck_id
-            warehouse_id = AMessage.truckLoaded.warehouse_id
-            package_id = AMessage.truckLoaded.package_id
-        else:
-            print("Wrong A Message")
-            return
-
-        session = Session()
-        order = WorldOrder(order_type, truck_id, package_id, warehouse_id)
-        session.add(order)
-        session.commit()
-
-        seq_no = order.seqNo
-        print("Added order with a seqno " + str(seq_no) + " to DB")
-        session.close()
+    seq_no = order.seqNo
+    print("Added order with a seqno " + str(seq_no) + " to DB")
+    session.close()
 
 
 if __name__ == "__main__":
     # Base.metadata.create_all(engine)
 
+    # To hold onto all the threads spawned to check if they have been closed
+    threads = []
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((UPS_HOST, UPS_PORT))
         s.listen()
+        conn, addr = s.accept()
+
         while True:
             print("waiting")
-            conn, addr = s.accept()
-            print("Received a connection")
-            # Create a new thread to handle the connection
-            t = threading.Thread(target=handle_connection, args=(conn,))
-            t.start()
+            try:
+                msg = recv_from_socket(conn)
+                print("Received a connection")
+                print(msg)
+                AMessage = amazon_ups_pb2.AMessage()
+                AMessage.ParseFromString(msg)
+                # Create a new thread to handle the connection
+                t = threading.Thread(target=handle_connection, args=(AMessage,))
+                threads.append(t)
+                t.start()
+            except Exception as e:
+                print("Error with " + str(e))
+                print("Socket closed")
+                break
+
+    # Waiting for all the threads to complete
+    for thread in threads:
+        thread.join()
+
+    print("End")
