@@ -8,6 +8,7 @@ from models.base import Base, engine, Session
 from models.item import Item
 from models.package import Package
 from models.truck import Truck, TruckStatus
+from models.users import Users
 from models.worldorder import WorldOrder, OrderType
 from proto import world_ups_pb2, amazon_ups_pb2
 
@@ -257,6 +258,10 @@ def handle_connection(socket, world_id: int):
 
 if __name__ == "__main__":
     Base.metadata.create_all(engine)
+    session = Session()
+    users = Users("name", "email@email.com", "password", None)
+    session.add(users)
+    session.commit()
     world_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     world_socket.connect((WORLD_HOST, WORLD_PORT))
 

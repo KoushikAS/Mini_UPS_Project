@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.css"
+      integrity="sha512-5fsy+3xG8N/1PV5MIJz9ZsWpkltijBI48gBzQ/Z2eVATePGHOkMIn+xTDHIfTZFVb9GMpflF2wOWItqxAP2oLQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Package</title>
+  </head>
+  <body>
+    <% if(typeof guest == 'undefined') { %>
+    <a href="/users/logout">Logout</a>
+    <% } %>
+    <h1>Package <%= id %></h1>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Quantity</th>
+        </tr>
+      </thead>
+      <% if(typeof items != 'undefined') { %> <% items.forEach(item => { %>
+      <tbody>
+        <td><%= item.description %></td>
+        <td><%= item.count %></td>
+      </tbody>
+      <% }) %> <% } %>
+    </table>
+  </body>
+</html>
