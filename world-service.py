@@ -140,16 +140,19 @@ def setup_world_with_amazon():
                 UtoAzConnect.worldid = world_id
 
                 send_to_socket(amazon_socket, UtoAzConnect)
-
-                msg = recv_from_socket(amazon_socket)
-                AzConnected = amazon_ups_pb2.AzConnected()
-                AzConnected.ParseFromString(msg)
-
-                if AzConnected.result == "success":
-                    print("Amazon successfully joined the world")
-                    return
-                else:
-                    print("Amazon failed to join the world.")
+                # print("Waiting for Az connect request")
+                # msg = recv_from_socket(amazon_socket)
+                # print("Received from Az connect request")
+                # AzConnected = amazon_ups_pb2.AzConnected()
+                # AzConnected.ParseFromString(msg)
+                #
+                # if AzConnected.result == "success":
+                #     print("Amazon successfully joined the world")
+                #     return
+                # else:
+                #     print("Amazon failed to join the world.")
+                print("tmp just exiting without verification")
+                break
             except Exception as e:
                 print("Amazon Network Error: Amazon failed to join the world.")
                 print(str(e))
@@ -249,42 +252,58 @@ def call_TruckAtWH(order):
     print("Sent to Amazon")
 
 
+def handle_UFinished_ForTruckAtWH(UFinished):
+    session = Session()
+
+    orders = session.query(WorldOrder) \
+        .filter(and_(WorldOrder.orderType == OrderType.PICKUP, and_(WorldOrder.truckId == UFinished.truckid,
+                                                                    or_(WorldOrder.status == OrderStatus.ACTIVE,
+                                                                        WorldOrder.status == OrderStatus.SENT)))) \
+        .with_for_update()
+
+    for order in orders:
+        call_TruckAtWH(order)
+        order.status = WorldOrder.COMPLETE
+
+        package = session.query(Package) \
+            .filter(Package.packageId == order.packageId) \
+            .with_for_update() \
+            .scalar()
+
+        package.status = PackageStatus.LOADING
+
+    session.commit()
+
+    truck = session.query(Truck) \
+        .filter(Truck.id == UFinished.truckid) \
+        .with_for_update() \
+        .scalar()
+
+    truck.status = TruckStatus.WAREHOUSE
+    session.commit()
+
+
+def handle_UFinished_ForTruckDeliveryFinished(UFinished):
+    session = Session()
+    truck = session.query(Truck) \
+        .filter(Truck.id == UFinished.truckid) \
+        .with_for_update() \
+        .scalar()
+
+    truck.status = TruckStatus.IDLE
+    session.commit()
+
+
 def handle_UFinished(UFinished):
     print("U finished msg response ")
     print(UFinished)
 
     if UFinished.status == "arrive warehouse":
-        session = Session()
-
-        orders = session.query(WorldOrder) \
-            .filter(and_(WorldOrder.orderType == OrderType.PICKUP, and_(WorldOrder.truckId == UFinished.truckid,
-                                                                        or_(WorldOrder.status == OrderStatus.ACTIVE,
-                                                                            WorldOrder.status == OrderStatus.SENT)))) \
-            .with_for_update()
-
-        for order in orders:
-            call_TruckAtWH(order)
-            order.status = WorldOrder.COMPLETE
-
-            package = session.query(Package) \
-                .filter(Package.packageId == order.packageId) \
-                .with_for_update() \
-                .scalar()
-
-            package.status = PackageStatus.LOADING
-
-        session.commit()
-
-        truck = session.query(Truck) \
-            .filter(Truck.id == UFinished.truckid) \
-            .with_for_update() \
-            .scalar()
-
-        truck.status = TruckStatus.WAREHOUSE
-        session.commit()
+        handle_UFinished_ForTruckAtWH(UFinished)
     elif UFinished.status == "arrive warehouse":
-        pass
+        handle_UFinished_ForTruckDeliveryFinished(UFinished)
     else:
+        print("Should not come here")
         pass
 
 
@@ -315,10 +334,18 @@ def handle_UErr(UErr):
     order.errorDescription = UErr.err
     session.commit()
 
-# def createDummyItem():
-#     session = Session()
-#     item = Item(1, "abc",1)
-#     session.commit()
+
+def handle_UDeliveryMade(UDeliveryMade):
+    session = Session()
+
+    package = session.query(Package) \
+        .filter(Package.packageId == UDeliveryMade.packageId) \
+        .with_for_update() \
+        .scalar()
+
+    package.status = PackageStatus.DELIVERED
+    session.commit()
+
 
 if __name__ == "__main__":
     Base.metadata.create_all(engine, checkfirst=True)
@@ -327,7 +354,7 @@ if __name__ == "__main__":
     world_socket.connect((WORLD_HOST, WORLD_PORT))
 
     world_id = create_new_world(world_socket)
-    # setup_world_with_amazon()
+    setup_world_with_amazon()
 
     messages_to_be_acked = []
 
@@ -348,6 +375,10 @@ if __name__ == "__main__":
 
             for ack in UResponses.acks:
                 handle_Ack(ack)
+
+            for delivery in UResponses.delivered:
+                handle_UDeliveryMade(delivery)
+                messages_to_be_acked.append(delivery.seqnum)
 
             for completion in UResponses.completions:
                 handle_UFinished(completion)
