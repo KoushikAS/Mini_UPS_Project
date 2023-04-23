@@ -3,17 +3,17 @@ from sqlalchemy.orm import relationship
 
 from models.base import Base
 
+
 class Item(Base):
     __tablename__ = 'items'
 
     id = Column(Integer, primary_key=True)
 
-    package_id = Column(Integer, ForeignKey('package.packageId'))
+    packageId = Column(Integer, ForeignKey('package.packageId'))
     package = relationship("Package")
 
     description = Column(String)
     count = Column(Integer)
-
 
     def __init__(self, packageId, description, count):
         self.packageId = packageId

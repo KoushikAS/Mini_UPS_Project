@@ -7,6 +7,7 @@ from google.protobuf.internal.encoder import _EncodeVarint
 
 from models.base import Base, engine, Session
 from models.package import Package, PackageStatus
+from models.item import Item
 from models.truck import Truck, TruckStatus
 from models.users import Users
 from models.worldorder import WorldOrder, OrderType, OrderStatus
@@ -237,9 +238,9 @@ def call_TruckAtWH(order):
     # send a message to Amazon saying that Truck has arrived.
 
     UMessage = amazon_ups_pb2.UMessage()
-    UMessage.truckAtWH.truck_id = order.truck_id
-    UMessage.truckAtWH.package_id = order.package_id
-    UMessage.truckAtWH.warehouse_id = order.warehouse_id
+    UMessage.truckAtWH.truck_id = order.truckId
+    UMessage.truckAtWH.package_id = order.packageId
+    UMessage.truckAtWH.warehouse_id = order.warehouseId
 
     print("Send the Truck at Warehouse to Amazon")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
@@ -314,9 +315,13 @@ def handle_UErr(UErr):
     order.errorDescription = UErr.err
     session.commit()
 
+# def createDummyItem():
+#     session = Session()
+#     item = Item(1, "abc",1)
+#     session.commit()
 
 if __name__ == "__main__":
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(engine, checkfirst=True)
 
     world_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     world_socket.connect((WORLD_HOST, WORLD_PORT))

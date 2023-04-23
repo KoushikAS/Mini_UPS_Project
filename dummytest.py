@@ -14,12 +14,19 @@ def send_to_socket(socket: socket, msg):
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
+
+    AItem = amazon_ups_pb2.AItem()
+    AItem.description = "abc"
+    AItem.count = 2
+
+
     AMessage = amazon_ups_pb2.AMessage()
     AMessage.sendTruck.package_id = 100
     AMessage.sendTruck.warehouse_id = 1
     AMessage.sendTruck.user_id = 1
     AMessage.sendTruck.x = 1
     AMessage.sendTruck.y = 1
+    AMessage.sendTruck.items.append(AItem)
 
     send_to_socket(s, AMessage)
     AMessage.sendTruck.package_id = 11
