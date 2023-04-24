@@ -12,10 +12,11 @@ from models.truck import Truck, TruckStatus
 from models.users import Users
 from models.worldorder import WorldOrder, OrderType, OrderStatus
 from proto import world_ups_pb2, amazon_ups_pb2
+from sqlalchemy import and_, or_
 
 # WORLD_HOST = "localhost"
-# WORLD_HOST = "docker.for.mac.localhost"
-WORLD_HOST = "152.3.53.130"
+WORLD_HOST = "docker.for.mac.localhost"
+# WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 # AMAZON_HOST = "docker.for.mac.localhost"
@@ -25,7 +26,6 @@ AMAZON_PORT = 6543
 TIMEOUT = 5.0  # 5 second
 
 MAX_RETRY = 10
-from sqlalchemy import and_, or_
 
 
 def send_to_socket(socket: socket, msg):

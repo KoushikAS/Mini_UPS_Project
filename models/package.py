@@ -30,10 +30,11 @@ class Package(Base):
     x = Column(Integer)
     y = Column(Integer)
 
-    def __init__(self, packageId, truckId, warehouseId, userId, x, y):
+    def __init__(self, packageId, truckId, warehouseId, userId, x, y, status):
         self.packageId = packageId
         self.truckId = truckId
         self.warehouseId = warehouseId
         self.userId = userId
         self.x = x
         self.y = y
+        self.status = status

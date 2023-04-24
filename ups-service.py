@@ -10,6 +10,7 @@ from models.package import Package, PackageStatus
 from models.truck import Truck, TruckStatus
 from models.worldorder import WorldOrder, OrderType
 from proto import amazon_ups_pb2
+from sqlalchemy import and_, or_
 
 UPS_HOST = "0.0.0.0"
 UPS_PORT = 54321
@@ -26,9 +27,8 @@ def recv_from_socket(socket: socket) -> str:
     return socket.recv(msg_len)
 
 
-def get_truck_for_package() -> int:
+def get_truck_for_package(session) -> int:
     print("Searching for Truck")
-    session = Session()
     truck = session.query(Truck) \
         .filter(Truck.status == TruckStatus.IDLE) \
         .with_for_update() \
@@ -47,64 +47,85 @@ def get_truck_for_package() -> int:
         print("Did not find any Truck which is idle")
         truck_id = None
         pass
-    session.commit()
-    session.close()
 
     return truck_id
 
 
-def create_package(truck_id: int, ASendTruck):
-    session = Session()
+def create_package(session, truck_id: int, ASendTruck, pacakge_status):
 
     if not ASendTruck.HasField("user_id"):
         ASendTruck.user_id = None
 
     package = Package(ASendTruck.package_id, truck_id, ASendTruck.warehouse_id, ASendTruck.user_id, ASendTruck.x,
-                      ASendTruck.y)
+                          ASendTruck.y, pacakge_status)
     session.add(package)
-    session.commit()
 
     for item in ASendTruck.items:
         i = Item(ASendTruck.package_id, item.description, item.count)
         session.add(i)
-        session.commit()
-
-    session.close()
 
     return ASendTruck.package_id
+
+
+def submitOrder(session, order_type, truck_id, package_id, warehouse_id):
+    order = WorldOrder(order_type, truck_id, package_id, warehouse_id)
+    session.add(order)
+    seq_no = order.seqNo
+    print("Added order with a seqno " + str(seq_no) + " to DB")
+
+def handle_ASendTruck(ASendTruck):
+    order_type = OrderType.PICKUP
+    warehouse_id = ASendTruck.warehouse_id
+    package_id = ASendTruck.package_id
+
+    session = Session()
+    existing_package = session.query(Package) \
+        .filter(Package.userId == ASendTruck.user_id, or_(Package.status == PackageStatus.CREATED, Package.status == PackageStatus.WAREHOUSE)) \
+        .with_for_update() \
+        .first()
+    print("Existing Package")
+    print(existing_package)
+
+    if existing_package is None:
+        # Check if package can be clubbed to previous trucks and exit
+        truck_id = get_truck_for_package(session)  # If not get a truck id
+        print("Got a new Truck")
+        # create Package
+        create_package(session, truck_id, ASendTruck, PackageStatus.CREATED)
+        print("created a Package")
+    else:
+        truck_id = existing_package.truckId
+        print("Getting an existing Truck")
+        # create Package
+        create_package(session, truck_id, ASendTruck, PackageStatus.WAREHOUSE)
+        print("created a Package")
+
+    submitOrder(session, order_type, truck_id, package_id, warehouse_id)
+
+    session.commit()
+
+
+def handle_ATruckLoaded(ATruckLoaded):
+    session = Session()
+    order_type = OrderType.DELIVERY
+    truck_id = ATruckLoaded.truck_id
+    warehouse_id = ATruckLoaded.warehouse_id
+    package_id = ATruckLoaded.package_id
+    submitOrder(session, order_type, truck_id, package_id, warehouse_id)
+    session.commit()
 
 
 def handle_connection(AMessage):
     print("here")
     if AMessage.HasField('sendTruck'):
-        order_type = OrderType.PICKUP
-        warehouse_id = AMessage.sendTruck.warehouse_id
-        package_id = AMessage.sendTruck.package_id
-
-        # Check if package can be clubbed to previous trucks and exit
-        truck_id = get_truck_for_package()  # If not get a truck id
-        print("Got Truck")
-
-        # create Package
-        create_package(truck_id, AMessage.sendTruck)
-        print("created Package")
+        handle_ASendTruck(AMessage.sendTruck)
     elif AMessage.HasField('truckLoaded'):
-        order_type = OrderType.DELIVERY
-        truck_id = AMessage.truckLoaded.truck_id
-        warehouse_id = AMessage.truckLoaded.warehouse_id
-        package_id = AMessage.truckLoaded.package_id
+        handle_ATruckLoaded(AMessage.truckLoaded)
     else:
         print("Wrong A Message")
         return
 
-    session = Session()
-    order = WorldOrder(order_type, truck_id, package_id, warehouse_id)
-    session.add(order)
-    session.commit()
 
-    seq_no = order.seqNo
-    print("Added order with a seqno " + str(seq_no) + " to DB")
-    session.close()
 
 
 if __name__ == "__main__":
@@ -117,6 +138,18 @@ if __name__ == "__main__":
         s.bind((UPS_HOST, UPS_PORT))
         s.listen()
         conn, addr = s.accept()
+        # # Waiting tmp
+        # print("Waiting for Az connect request")
+        # msg = recv_from_socket(conn)
+        # print("Received from Az connect request")
+        # AzConnected = amazon_ups_pb2.AzConnected()
+        # AzConnected.ParseFromString(msg)
+        #
+        # if AzConnected.result == "success":
+        #     print("Amazon successfully joined the world")
+        # else:
+        #     print("Amazon failed to join the world.")
+        #     exit()
 
         while True:
             print("waiting")
