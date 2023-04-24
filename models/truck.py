@@ -7,10 +7,7 @@ from models.base import Base
 
 class TruckStatus(enum.Enum):
     IDLE = 'idle'
-    TRAVELING = 'traveling'
-    WAREHOUSE = 'arrive warehouse'
-    LOADING = 'loading'
-    DELIVERING = 'delivering'
+    OCCUPIED = 'occupied'
 
 
 class Truck(Base):

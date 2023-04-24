@@ -174,38 +174,36 @@ def prepare_UGoPickupRequest(order):
     UGoPickup.truckid = order.truckId
     UGoPickup.whid = order.warehouseId
     UGoPickup.seqnum = order.seqNo
-
+    session.close()
     return UGoPickup
 
 
 def prepare_UGoDeliver(order):
+    truck_id = order.truckId
+
     session = Session()
-    package = session.query(Package) \
-        .filter(Package.packageId == order.packageId) \
-        .with_for_update() \
-        .scalar()
-    package.status = PackageStatus.DELIVERY
+    packages = session.query(Package) \
+        .filter(Package.truckId == truck_id, Package.status == PackageStatus.LOADED) \
+        .with_for_update()
+
+    for package in packages:
+        package.status = PackageStatus.DELIVERY
+
     session.commit()
-
-    UDeliveryLocation = world_ups_pb2.UDeliveryLocation()
-
-    UDeliveryLocation.packageid = order.packageId
-    UDeliveryLocation.x = package.x
-    UDeliveryLocation.y = package.y
 
     UGoDeliver = world_ups_pb2.UGoDeliver()
     UGoDeliver.truckid = order.truckId
-    UGoDeliver.packages.append(UDeliveryLocation)
+
     UGoDeliver.seqnum = order.seqNo
 
-    truck = session.query(Truck) \
-        .filter(Truck.id == order.truckId) \
-        .with_for_update() \
-        .scalar()
+    for package in packages:
+        UDeliveryLocation = world_ups_pb2.UDeliveryLocation()
+        UDeliveryLocation.packageid = order.packageId
+        UDeliveryLocation.x = package.x
+        UDeliveryLocation.y = package.y
+        UGoDeliver.packages.append(UDeliveryLocation)
 
-    truck.status = TruckStatus.DELIVERING
-    session.commit()
-
+    session.close()
     return UGoDeliver
 
 
@@ -213,7 +211,7 @@ def prepare_UCommandsRequest(acks):
     session = Session()
 
     orders = session.query(WorldOrder) \
-        .filter(WorldOrder.status == OrderStatus.ACTIVE)
+        .filter(WorldOrder.status == OrderStatus.NEW)
 
     if orders.first() is None and len(acks) == 0:
         print("No new command")
@@ -237,13 +235,13 @@ def prepare_UCommandsRequest(acks):
     return UCommands
 
 
-def call_TruckAtWH(order):
+def call_TruckAtWH(truck_id, package_id, warehouse_id):
     # send a message to Amazon saying that Truck has arrived.
 
     UMessage = amazon_ups_pb2.UMessage()
-    UMessage.truckAtWH.truck_id = order.truckId
-    UMessage.truckAtWH.package_id = order.packageId
-    UMessage.truckAtWH.warehouse_id = order.warehouseId
+    UMessage.truckAtWH.truck_id = truck_id
+    UMessage.truckAtWH.package_id = package_id
+    UMessage.truckAtWH.warehouse_id = warehouse_id
 
     print("Send the Truck at Warehouse to Amazon")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
@@ -255,32 +253,17 @@ def call_TruckAtWH(order):
 def handle_UFinished_ForTruckAtWH(UFinished):
     session = Session()
 
-    orders = session.query(WorldOrder) \
-        .filter(and_(WorldOrder.orderType == OrderType.PICKUP, and_(WorldOrder.truckId == UFinished.truckid,
-                                                                    or_(WorldOrder.status == OrderStatus.ACTIVE,
-                                                                        WorldOrder.status == OrderStatus.SENT)))) \
+    packages = session.query(Package) \
+        .filter(Package.truckId == UFinished.truckid,
+                or_(Package.status == PackageStatus.CREATED, Package.status == PackageStatus.WAREHOUSE)) \
         .with_for_update()
 
-    for order in orders:
-        call_TruckAtWH(order)
-        order.status = WorldOrder.COMPLETE
-
-        package = session.query(Package) \
-            .filter(Package.packageId == order.packageId) \
-            .with_for_update() \
-            .scalar()
-
+    for package in packages:
+        call_TruckAtWH(UFinished.truckid, package.packageId, package.warehouseId)
         package.status = PackageStatus.LOADING
 
     session.commit()
-
-    truck = session.query(Truck) \
-        .filter(Truck.id == UFinished.truckid) \
-        .with_for_update() \
-        .scalar()
-
-    truck.status = TruckStatus.WAREHOUSE
-    session.commit()
+    session.close()
 
 
 def handle_UFinished_ForTruckDeliveryFinished(UFinished):
@@ -315,9 +298,9 @@ def handle_Ack(ack):
         .with_for_update() \
         .scalar()
 
-    # Only marking it as Sent if it is Active and not if it is already complete
-    if order.status == OrderStatus.ACTIVE:
-        order.status = OrderStatus.SENT
+    # Only marking it as ACKED if it is NEW and not if it is already ACKED
+    if order.status == OrderStatus.NEW:
+        order.status = OrderStatus.ACKED
 
     session.commit()
 
@@ -332,6 +315,14 @@ def handle_UErr(UErr):
 
     order.status = OrderStatus.ERROR
     order.errorDescription = UErr.err
+
+    truck = session.query(Truck) \
+        .filter(Truck.id == order.truckId) \
+        .with_for_update() \
+        .scalar()
+
+    truck.status = TruckStatus.IDLE
+
     session.commit()
 
 

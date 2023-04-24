@@ -10,6 +10,7 @@ class PackageStatus(enum.Enum):
     CREATED = 'created'
     WAREHOUSE = 'truck en route to warehouse'
     LOADING = 'truck waiting for package'
+    LOADED = 'truck Loaded waiting for other package'
     DELIVERY = 'out for delivery'
     DELIVERED = 'delivered'
 
