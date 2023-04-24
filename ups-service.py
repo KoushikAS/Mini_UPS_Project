@@ -156,17 +156,17 @@ if __name__ == "__main__":
         s.listen()
         conn, addr = s.accept()
         # # Waiting tmp
-        # print("Waiting for Az connect request")
-        # msg = recv_from_socket(conn)
-        # print("Received from Az connect request")
-        # AzConnected = amazon_ups_pb2.AzConnected()
-        # AzConnected.ParseFromString(msg)
-        #
-        # if AzConnected.result == "success":
-        #     print("Amazon successfully joined the world")
-        # else:
-        #     print("Amazon failed to join the world.")
-        #     exit()
+        print("Waiting for Az connect request")
+        msg = recv_from_socket(conn)
+        print("Received from Az connect request")
+        AzConnected = amazon_ups_pb2.AzConnected()
+        AzConnected.ParseFromString(msg)
+
+        if AzConnected.result == "success":
+            print("Amazon successfully joined the world")
+        else:
+            print("Amazon failed to join the world.")
+            exit()
 
         while True:
             print("waiting")

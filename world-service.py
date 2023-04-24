@@ -15,8 +15,8 @@ from proto import world_ups_pb2, amazon_ups_pb2
 from sqlalchemy import and_, or_
 
 # WORLD_HOST = "localhost"
-WORLD_HOST = "docker.for.mac.localhost"
-# WORLD_HOST = "152.3.53.130"
+#WORLD_HOST = "docker.for.mac.localhost"
+WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 # AMAZON_HOST = "docker.for.mac.localhost"
@@ -25,8 +25,9 @@ AMAZON_PORT = 6543
 
 TIMEOUT = 5.0  # 5 second
 
-MAX_RETRY = 10
+MAX_RETRY = 50
 
+amazon_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def send_to_socket(socket: socket, msg):
     serialize_msg = msg.SerializeToString()
@@ -132,37 +133,36 @@ def add_truck() -> int:
 
 def setup_world_with_amazon():
     for i in range(0, MAX_RETRY):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
-            try:
-                amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
-                # sending world id to amazon
-                UtoAzConnect = amazon_ups_pb2.UtoAzConnect()
-                UtoAzConnect.worldid = world_id
+        try:
+            amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
+            # sending world id to amazon
+            UtoAzConnect = amazon_ups_pb2.UtoAzConnect()
+            UtoAzConnect.worldid = world_id
 
-                send_to_socket(amazon_socket, UtoAzConnect)
-                # print("Waiting for Az connect request")
-                # msg = recv_from_socket(amazon_socket)
-                # print("Received from Az connect request")
-                # AzConnected = amazon_ups_pb2.AzConnected()
-                # AzConnected.ParseFromString(msg)
-                #
-                # if AzConnected.result == "success":
-                #     print("Amazon successfully joined the world")
-                #     return
-                # else:
-                #     print("Amazon failed to join the world.")
-                print("tmp just exiting without verification")
-                break
-            except Exception as e:
-                print("Amazon Network Error: Amazon failed to join the world.")
-                print(str(e))
-                time.sleep(10)  # Sleep for 10 seconds
+            send_to_socket(amazon_socket, UtoAzConnect)
+            # print("Waiting for Az connect request")
+            # msg = recv_from_socket(amazon_socket)
+            # print("Received from Az connect request")
+            # AzConnected = amazon_ups_pb2.AzConnected()
+            # AzConnected.ParseFromString(msg)
+            #
+            # if AzConnected.result == "success":
+            #     print("Amazon successfully joined the world")
+            #     return
+            # else:
+            #     print("Amazon failed to join the world.")
+            print("successfully sent the world to Amazon")
+            print("tmp just exiting without verification")
+            return
+        except Exception as e:
+            print("Amazon Network Error: Amazon failed to join the world.")
+            print(str(e))
+            time.sleep(10)  # Sleep for 10 seconds
 
     print("Amazon is not able to join the world after " + str(MAX_RETRY) + " iteration. exiting")
 
 
-def prepare_UGoPickupRequest(order):
-    session = Session()
+def prepare_UGoPickupRequest(session, order):
     packages = session.query(Package) \
         .filter(Package.truckId == order.truckId, Package.status == PackageStatus.CREATED) \
         .with_for_update()
@@ -170,20 +170,19 @@ def prepare_UGoPickupRequest(order):
     for package in packages:
         package.status = PackageStatus.WAREHOUSE
 
-    session.commit()
 
     UGoPickup = world_ups_pb2.UGoPickup()
     UGoPickup.truckid = order.truckId
     UGoPickup.whid = order.warehouseId
     UGoPickup.seqnum = order.seqNo
-    session.close()
+    session.commit()
+
     return UGoPickup
 
 
-def prepare_UGoDeliver(order):
+def prepare_UGoDeliver(session, order):
     truck_id = order.truckId
 
-    session = Session()
     packages = session.query(Package) \
         .filter(Package.truckId == truck_id, Package.status == PackageStatus.LOADED) \
         .with_for_update()
@@ -205,7 +204,6 @@ def prepare_UGoDeliver(order):
         UDeliveryLocation.y = package.y
         UGoDeliver.packages.append(UDeliveryLocation)
 
-    session.close()
     return UGoDeliver
 
 
@@ -223,19 +221,19 @@ def prepare_UCommandsRequest(acks):
     UCommands = world_ups_pb2.UCommands()
 
     for order in orders:
-        print("Order is ")
+        print("Order")
         print(order.orderType)
         if order.orderType == OrderType.PICKUP:
-            UCommands.pickups.append(prepare_UGoPickupRequest(order))
+            UCommands.pickups.append(prepare_UGoPickupRequest(session, order))
         elif order.orderType == OrderType.DELIVERY:
-            UCommands.deliveries.append(prepare_UGoDeliver(order))
+            UCommands.deliveries.append(prepare_UGoDeliver(session, order))
         else:
             pass
 
+    session.close()
+
     for ack in acks:
         UCommands.acks.append(ack)
-
-    session.close()
     return UCommands
 
 
@@ -248,9 +246,7 @@ def send_UTruckAtWH(truck_id, package_id, warehouse_id):
     UMessage.truckAtWH.warehouse_id = warehouse_id
 
     print("Send the Truck at Warehouse to Amazon")
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
-        amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
-        send_to_socket(amazon_socket, UMessage)
+    send_to_socket(amazon_socket, UMessage)
     print("Sent to Amazon")
 
 
@@ -261,9 +257,7 @@ def send_UPackageDelivered(package_id):
     UMessage.packageDelivered.package_id = package_id
 
     print("Sending Package Delivered Status to Amazon")
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
-        amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
-        send_to_socket(amazon_socket, UMessage)
+    send_to_socket(amazon_socket, UMessage)
     print("Package Delivery Status sent to Amazon")
 
 
@@ -325,6 +319,9 @@ def handle_Ack(ack):
 def handle_UErr(UErr):
     session = Session()
 
+    print("U error is")
+    print(UErr)
+
     order = session.query(WorldOrder) \
         .filter(WorldOrder.seqNo == UErr.originseqnum) \
         .with_for_update() \
@@ -340,7 +337,13 @@ def handle_UErr(UErr):
 
     truck.status = TruckStatus.IDLE
 
+    packages = session.query(Package) \
+        .filter(Package.truckId == order.truckId, Package.warehouseId == order.warehouseId, Package.status != PackageStatus.DELIVERED) \
+        .with_for_update() \
+        .scalar()
 
+    for package in packages:
+        package.status = PackageStatus.ERROR
 
     session.commit()
 
@@ -365,7 +368,7 @@ if __name__ == "__main__":
     world_socket.connect((WORLD_HOST, WORLD_PORT))
 
     world_id = create_new_world(world_socket)
-    # setup_world_with_amazon()
+    setup_world_with_amazon()
 
     messages_to_be_acked = []
 

@@ -13,6 +13,7 @@ class PackageStatus(enum.Enum):
     LOADED = 'truck Loaded waiting for other package'
     DELIVERY = 'out for delivery'
     DELIVERED = 'delivered'
+    ERROR = 'error'
 
 
 class Package(Base):
