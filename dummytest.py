@@ -23,7 +23,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     AItem.count = 2
 
     AMessage = amazon_ups_pb2.AMessage()
-    AMessage.sendTruck.package_id = 3
+    AMessage.sendTruck.package_id = 1
     AMessage.sendTruck.warehouse_id = 1
     AMessage.sendTruck.user_id = 1
     AMessage.sendTruck.x = 1
@@ -31,9 +31,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     AMessage.sendTruck.items.append(AItem)
 
     send_to_socket(s, AMessage)
-    AMessage.sendTruck.package_id = 4
+    AMessage.sendTruck.package_id = 2
     send_to_socket(s, AMessage)
-    AMessage.sendTruck.package_id = 5
+    AMessage.sendTruck.package_id = 3
     time.sleep((5))
     send_to_socket(s, AMessage)
 

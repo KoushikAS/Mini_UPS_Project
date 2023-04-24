@@ -28,8 +28,10 @@ class WorldOrder(Base):
     truckId = Column(Integer, ForeignKey('truck.id'))
     truck = relationship("Truck")
 
+    warehouseId = Column(Integer)
     errorDescription = Column(String)
 
-    def __init__(self, orderType, truckId):
+    def __init__(self, orderType, truckId, warehouseId):
         self.orderType = orderType
         self.truckId = truckId
+        self.warehouseId = warehouseId

@@ -163,11 +163,13 @@ def setup_world_with_amazon():
 
 def prepare_UGoPickupRequest(order):
     session = Session()
-    package = session.query(Package) \
-        .filter(Package.packageId == order.packageId) \
-        .with_for_update() \
-        .scalar()
-    package.status = PackageStatus.WAREHOUSE
+    packages = session.query(Package) \
+        .filter(Package.truckId == order.truckId, Package.status == PackageStatus.CREATED) \
+        .with_for_update()
+
+    for package in packages:
+        package.status = PackageStatus.WAREHOUSE
+
     session.commit()
 
     UGoPickup = world_ups_pb2.UGoPickup()
@@ -221,6 +223,8 @@ def prepare_UCommandsRequest(acks):
     UCommands = world_ups_pb2.UCommands()
 
     for order in orders:
+        print("Order is ")
+        print(order.orderType)
         if order.orderType == OrderType.PICKUP:
             UCommands.pickups.append(prepare_UGoPickupRequest(order))
         elif order.orderType == OrderType.DELIVERY:
@@ -235,7 +239,7 @@ def prepare_UCommandsRequest(acks):
     return UCommands
 
 
-def call_TruckAtWH(truck_id, package_id, warehouse_id):
+def send_UTruckAtWH(truck_id, package_id, warehouse_id):
     # send a message to Amazon saying that Truck has arrived.
 
     UMessage = amazon_ups_pb2.UMessage()
@@ -250,6 +254,19 @@ def call_TruckAtWH(truck_id, package_id, warehouse_id):
     print("Sent to Amazon")
 
 
+def send_UPackageDelivered(package_id):
+    # send a message to Amazon saying that Truck has arrived.
+
+    UMessage = amazon_ups_pb2.UMessage()
+    UMessage.packageDelivered.package_id = package_id
+
+    print("Sending Package Delivered Status to Amazon")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as amazon_socket:
+        amazon_socket.connect((AMAZON_HOST, AMAZON_PORT))
+        send_to_socket(amazon_socket, UMessage)
+    print("Package Delivery Status sent to Amazon")
+
+
 def handle_UFinished_ForTruckAtWH(UFinished):
     session = Session()
 
@@ -259,7 +276,7 @@ def handle_UFinished_ForTruckAtWH(UFinished):
         .with_for_update()
 
     for package in packages:
-        call_TruckAtWH(UFinished.truckid, package.packageId, package.warehouseId)
+        send_UTruckAtWH(UFinished.truckid, package.packageId, package.warehouseId)
         package.status = PackageStatus.LOADING
 
     session.commit()
@@ -283,7 +300,7 @@ def handle_UFinished(UFinished):
 
     if UFinished.status == "arrive warehouse":
         handle_UFinished_ForTruckAtWH(UFinished)
-    elif UFinished.status == "arrive warehouse":
+    elif UFinished.status == "idle":
         handle_UFinished_ForTruckDeliveryFinished(UFinished)
     else:
         print("Should not come here")
@@ -323,6 +340,8 @@ def handle_UErr(UErr):
 
     truck.status = TruckStatus.IDLE
 
+
+
     session.commit()
 
 
@@ -334,6 +353,7 @@ def handle_UDeliveryMade(UDeliveryMade):
         .with_for_update() \
         .scalar()
 
+    send_UPackageDelivered(UDeliveryMade.packageId)
     package.status = PackageStatus.DELIVERED
     session.commit()
 
@@ -345,7 +365,7 @@ if __name__ == "__main__":
     world_socket.connect((WORLD_HOST, WORLD_PORT))
 
     world_id = create_new_world(world_socket)
-    setup_world_with_amazon()
+    # setup_world_with_amazon()
 
     messages_to_be_acked = []
 

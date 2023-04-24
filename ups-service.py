@@ -67,22 +67,25 @@ def create_package(session, truck_id: int, ASendTruck, pacakge_status):
     return ASendTruck.package_id
 
 
-def submitOrder(session, order_type, truck_id):
-    order = WorldOrder(order_type, truck_id)
+def submitOrder(session, order_type, truck_id, warehouse_id):
+    order = WorldOrder(order_type, truck_id, warehouse_id)
     session.add(order)
     seq_no = order.seqNo
     print("Added order with a seqno " + str(seq_no) + " to DB")
 
 def handle_ASendTruck(ASendTruck):
     order_type = OrderType.PICKUP
+    warehouse_id = ASendTruck.warehouse_id
 
     session = Session()
     existing_package = session.query(Package) \
-        .filter(Package.userId == ASendTruck.user_id, or_(Package.status == PackageStatus.CREATED, Package.status == PackageStatus.WAREHOUSE)) \
+        .filter(Package.userId == ASendTruck.user_id, Package.warehouseId == ASendTruck.warehouse_id , or_(Package.status == PackageStatus.CREATED, Package.status == PackageStatus.WAREHOUSE)) \
         .with_for_update() \
         .first()
+
     print("Existing Package")
     print(existing_package)
+
 
     if existing_package is None:
         # Check if package can be clubbed to previous trucks and exit
@@ -91,14 +94,13 @@ def handle_ASendTruck(ASendTruck):
         # create Package
         create_package(session, truck_id, ASendTruck, PackageStatus.CREATED)
         print("created a Package")
+        submitOrder(session, order_type, truck_id, warehouse_id)
     else:
         truck_id = existing_package.truckId
         print("Getting an existing Truck")
         # create Package
         create_package(session, truck_id, ASendTruck, PackageStatus.WAREHOUSE)
         print("created a Package")
-
-    submitOrder(session, order_type, truck_id)
 
     session.commit()
 
@@ -107,6 +109,7 @@ def handle_ATruckLoaded(ATruckLoaded):
 
     order_type = OrderType.DELIVERY
     truck_id = ATruckLoaded.truck_id
+    warehouse_id = ATruckLoaded.warehouse_id
 
     session = Session()
     package = session.query(Package) \
@@ -117,13 +120,13 @@ def handle_ATruckLoaded(ATruckLoaded):
     session.commit()
 
     other_packages = session.query(Package) \
-        .filter(Package.userId == package.package, Package.status == PackageStatus.LOADING)\
+        .filter(Package.userId == package.userId, Package.warehouseId == package.warehouseId, Package.status == PackageStatus.LOADING)\
         .with_for_update() \
         .scalar()\
         .first()
 
     if other_packages is None:  #Only submit order if all packages of are loaded in the truck.
-        submitOrder(session, order_type, truck_id)
+        submitOrder(session, order_type, truck_id, warehouse_id)
 
     session.commit()
 
