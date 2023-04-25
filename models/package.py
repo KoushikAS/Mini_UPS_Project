@@ -10,8 +10,10 @@ class PackageStatus(enum.Enum):
     CREATED = 'created'
     WAREHOUSE = 'truck en route to warehouse'
     LOADING = 'truck waiting for package'
+    LOADED = 'truck Loaded waiting for other package'
     DELIVERY = 'out for delivery'
     DELIVERED = 'delivered'
+    ERROR = 'error'
 
 
 class Package(Base):
@@ -30,10 +32,11 @@ class Package(Base):
     x = Column(Integer)
     y = Column(Integer)
 
-    def __init__(self, packageId, truckId, warehouseId, userId, x, y):
+    def __init__(self, packageId, truckId, warehouseId, userId, x, y, status):
         self.packageId = packageId
         self.truckId = truckId
         self.warehouseId = warehouseId
         self.userId = userId
         self.x = x
         self.y = y
+        self.status = status
