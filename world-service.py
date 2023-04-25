@@ -15,8 +15,8 @@ from proto import world_ups_pb2, amazon_ups_pb2
 from sqlalchemy import and_, or_
 
 # WORLD_HOST = "localhost"
-#WORLD_HOST = "docker.for.mac.localhost"
-WORLD_HOST = "152.3.53.130"
+WORLD_HOST = "docker.for.mac.localhost"
+#WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 # AMAZON_HOST = "docker.for.mac.localhost"
@@ -292,9 +292,9 @@ def handle_UFinished(UFinished):
     print("U finished msg response ")
     print(UFinished)
 
-    if UFinished.status == "arrive warehouse":
+    if UFinished.status == "ARRIVE WAREHOUSE":
         handle_UFinished_ForTruckAtWH(UFinished)
-    elif UFinished.status == "idle":
+    elif UFinished.status == "IDLE":
         handle_UFinished_ForTruckDeliveryFinished(UFinished)
     else:
         print("Should not come here")
@@ -371,13 +371,14 @@ if __name__ == "__main__":
     setup_world_with_amazon()
 
     messages_to_be_acked = []
-
     while True:
         print("Starting a new cycle")
         UCommands = prepare_UCommandsRequest(messages_to_be_acked)
 
         if UCommands is not None:
             print("Sending U Command request")
+            print("UCommand ")
+            print(UCommands)
             send_to_socket(world_socket, UCommands)
             messages_to_be_acked.clear()
         else:
@@ -386,6 +387,8 @@ if __name__ == "__main__":
         UResponses = receive_UResponse(world_socket)
 
         if UResponses is not None:
+            print("Received U Response")
+            print(UResponses)
 
             for ack in UResponses.acks:
                 handle_Ack(ack)

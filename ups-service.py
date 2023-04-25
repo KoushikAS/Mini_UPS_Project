@@ -155,7 +155,7 @@ if __name__ == "__main__":
         s.bind((UPS_HOST, UPS_PORT))
         s.listen()
         conn, addr = s.accept()
-        # # Waiting tmp
+        # Waiting tmp
         print("Waiting for Az connect request")
         msg = recv_from_socket(conn)
         print("Received from Az connect request")
