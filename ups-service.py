@@ -120,9 +120,8 @@ def handle_ATruckLoaded(ATruckLoaded):
     session.commit()
 
     other_packages = session.query(Package) \
-        .filter(Package.userId == package.userId, Package.warehouseId == package.warehouseId, Package.status == PackageStatus.LOADING)\
+        .filter(Package.truckId == truck_id, Package.warehouseId == package.warehouseId, Package.status == PackageStatus.LOADING)\
         .with_for_update() \
-        .scalar()\
         .first()
 
     if other_packages is None:  #Only submit order if all packages of are loaded in the truck.

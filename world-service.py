@@ -15,8 +15,8 @@ from proto import world_ups_pb2, amazon_ups_pb2
 from sqlalchemy import and_, or_
 
 # WORLD_HOST = "localhost"
-WORLD_HOST = "docker.for.mac.localhost"
-#WORLD_HOST = "152.3.53.130"
+# WORLD_HOST = "docker.for.mac.localhost"
+WORLD_HOST = "152.3.53.130"
 WORLD_PORT = 12345
 
 # AMAZON_HOST = "docker.for.mac.localhost"
@@ -182,6 +182,10 @@ def prepare_UGoPickupRequest(session, order):
 
 def prepare_UGoDeliver(session, order):
     truck_id = order.truckId
+    UGoDeliver = world_ups_pb2.UGoDeliver()
+    UGoDeliver.truckid = order.truckId
+
+    UGoDeliver.seqnum = order.seqNo
 
     packages = session.query(Package) \
         .filter(Package.truckId == truck_id, Package.status == PackageStatus.LOADED) \
@@ -189,21 +193,13 @@ def prepare_UGoDeliver(session, order):
 
     for package in packages:
         package.status = PackageStatus.DELIVERY
-
-    session.commit()
-
-    UGoDeliver = world_ups_pb2.UGoDeliver()
-    UGoDeliver.truckid = order.truckId
-
-    UGoDeliver.seqnum = order.seqNo
-
-    for package in packages:
         UDeliveryLocation = world_ups_pb2.UDeliveryLocation()
-        UDeliveryLocation.packageid = order.packageId
+        UDeliveryLocation.packageid = package.packageId
         UDeliveryLocation.x = package.x
         UDeliveryLocation.y = package.y
         UGoDeliver.packages.append(UDeliveryLocation)
 
+    session.commit()
     return UGoDeliver
 
 
@@ -246,6 +242,7 @@ def send_UTruckAtWH(truck_id, package_id, warehouse_id):
     UMessage.truckAtWH.warehouse_id = warehouse_id
 
     print("Send the Truck at Warehouse to Amazon")
+    print(UMessage)
     send_to_socket(amazon_socket, UMessage)
     print("Sent to Amazon")
 
@@ -257,6 +254,7 @@ def send_UPackageDelivered(package_id):
     UMessage.packageDelivered.package_id = package_id
 
     print("Sending Package Delivered Status to Amazon")
+    print(UMessage)
     send_to_socket(amazon_socket, UMessage)
     print("Package Delivery Status sent to Amazon")
 
@@ -352,11 +350,11 @@ def handle_UDeliveryMade(UDeliveryMade):
     session = Session()
 
     package = session.query(Package) \
-        .filter(Package.packageId == UDeliveryMade.packageId) \
+        .filter(Package.packageId == UDeliveryMade.packageid) \
         .with_for_update() \
         .scalar()
 
-    send_UPackageDelivered(UDeliveryMade.packageId)
+    send_UPackageDelivered(UDeliveryMade.packageid)
     package.status = PackageStatus.DELIVERED
     session.commit()
 
