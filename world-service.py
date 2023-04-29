@@ -29,6 +29,7 @@ MAX_RETRY = 50
 
 amazon_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+
 def send_to_socket(socket: socket, msg):
     serialize_msg = msg.SerializeToString()
     _EncodeVarint(socket.send, len(serialize_msg), None)
@@ -170,7 +171,6 @@ def prepare_UGoPickupRequest(session, order):
     for package in packages:
         package.status = PackageStatus.WAREHOUSE
 
-
     UGoPickup = world_ups_pb2.UGoPickup()
     UGoPickup.truckid = order.truckId
     UGoPickup.whid = order.warehouseId
@@ -188,7 +188,8 @@ def prepare_UGoDeliver(session, order):
     UGoDeliver.seqnum = order.seqNo
 
     packages = session.query(Package) \
-        .filter(Package.truckId == truck_id, Package.status == PackageStatus.LOADED) \
+        .filter(Package.truckId == truck_id,
+                or_(Package.status == PackageStatus.LOADED, Package.status == PackageStatus.DELIVERY)) \
         .with_for_update()
 
     for package in packages:
@@ -336,7 +337,8 @@ def handle_UErr(UErr):
     truck.status = TruckStatus.IDLE
 
     packages = session.query(Package) \
-        .filter(Package.truckId == order.truckId, Package.warehouseId == order.warehouseId, Package.status != PackageStatus.DELIVERED) \
+        .filter(Package.truckId == order.truckId, Package.warehouseId == order.warehouseId,
+                Package.status != PackageStatus.DELIVERED) \
         .with_for_update()
 
     for package in packages:
