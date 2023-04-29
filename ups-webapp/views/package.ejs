@@ -10,14 +10,27 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
+    <link rel="stylesheet" type="text/css" href="/css/main.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Package</title>
   </head>
   <body>
+    <button onclick="history.back()">Back</button>
     <% if(typeof guest == 'undefined') { %>
     <a href="/users/logout">Logout</a>
     <% } %>
     <h1>Package <%= id %></h1>
+
+    <% if(status != 'ERROR') { %>
+    <div class="stage-wrapper">
+      <% if(typeof stages != 'undefined') { %> <% stages.forEach(stage => { %>
+      <div class="<%= stage.className %>">
+        <div class="stage-counter"><%= stage.count %></div>
+        <div class="stage-name"><%= stage.stageName %></div>
+      </div>
+      <% }) %> <% } %>
+    </div>
+    <% } %>
 
     <table>
       <thead>
