@@ -1,0 +1,9 @@
+Differentiation feature.
+
+We have two differentiation features for this project.
+
+Optimizing Package Delivery:
+We have developed a feature that optimizes the delivery of packages to users. If there are multiple packages for the same warehouse we are able to combine these multiple packages into a single truck. This not only reduces the number of trucks needed for delivery but also ensures that the packages arrive at their destination faster.
+
+Loading Status Indicator:
+We understand that tracking the status of your package can be a hassle, which is why we have implemented a loading status bar. This innovative feature provides users with a visual representation of the progress of their package, making it easier than ever to keep track of its delivery status. With our loading status indicator, users can quickly and easily identify the status of their package, saving them valuable time and effort.
