@@ -1,0 +1,11 @@
+Vulnerability taken care
+1) We are hasing the password  beforeing storing it in the database.
+2) Using Database (select by update) to handle race condition. Since Postgres DB is used to handle race conditions, we are confident that our code will not have dangerous race conditions.
+
+Potential Vulnerability
+1) Having postgres db host and password in Docker compose file
+    However, we have mitigated this harm by running a docker container. So the user can't escalate their access to get the server system.
+    We have chosen decently strong passwords, but there is always the risk that these passwords could be broken and access to the server could be gained.
+    In a real stock exchange, multifactor authentication as well as constantly changing passwords would be a very good idea to protect the database.
+2) We are assuming that Amazon server gives the right data (i.e. right package id, warehouse id etc) If there is any error. We would just mark the order and package as error. We are not however
+    re triggering the job by asking amazon
