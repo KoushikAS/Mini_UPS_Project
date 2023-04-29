@@ -107,7 +107,7 @@ def create_new_world(world_socket) -> int:
     UConnect = world_ups_pb2.UConnect()
     UConnect.isAmazon = False
 
-    for i in range(0, 5):
+    for i in range(0, 50):
         truck_id = add_truck()
         UInitTruck = world_ups_pb2.UInitTruck()
         UInitTruck.id = truck_id
