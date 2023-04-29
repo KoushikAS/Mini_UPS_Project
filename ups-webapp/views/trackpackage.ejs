@@ -14,6 +14,7 @@
     <title>Track Package</title>
   </head>
   <body>
+    <button onclick="history.back()">Back</button>
     <% if(typeof guest == 'undefined') { %>
         <a href="/users/logout">Logout</a>
     <% } %>
@@ -47,7 +48,7 @@
         <td><%= package.status %></td>
         <% if(typeof guest == 'undefined' && package.status != 'DELIVERY' && package.status != 'DELIVERED') { %>
             <td>
-            <a href="/users/packages/<%= package.packageid %>/changedestination">Change Destination</a>
+            <a href="/users/packages/<%= package.packageid %>/changedest">Change Destination</a>
             </td>
         <% } else {%>
           <td>-</td>

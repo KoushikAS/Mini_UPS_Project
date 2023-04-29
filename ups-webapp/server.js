@@ -15,6 +15,9 @@ const PORT = process.env.PORT || 4000;
 
 app.set("view engine", "ejs");
 
+app.use(express.static("public"));
+app.use("/css", express.static(__dirname + "public/css"));
+
 app.use(express.urlencoded({ extended: false }));
 app.use(
   session({
@@ -226,15 +229,226 @@ app.get("/guest/packages/:packageid", (req, res) => {
           count: count,
         });
       }
-      console.log(items);
-      res.render("package", {
-        guest: true,
-        id: req.params.packageid,
-        items: items,
-      });
+      pool.query(
+        `SELECT status FROM package 
+        WHERE "packageId" = $1`,
+        [req.params.packageid],
+        (err, results) => {
+          if (err) throw err;
+          console.log(results.rows);
+          if (results.rowCount > 0) {
+            let { status } = results.rows[0];
+            console.log(status);
+            stages = getStages(status);
+            console.log(items);
+            res.render("package", {
+              guest: true,
+              id: req.params.packageid,
+              items: items,
+              status: status,
+              stages: stages,
+            });
+          }
+        }
+      );
     }
   );
 });
+
+function getStages(status) {
+  stages = [];
+  count = 0;
+  if (status == "ERROR") {
+    return undefined;
+  } else if (status == "CREATED") {
+    stages.push({
+      className: "stage-item active",
+      count: 1,
+      stageName: "CREATED",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 2,
+      stageName: "WAREHOUSE",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 3,
+      stageName: "LOADING",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 4,
+      stageName: "LOADED",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 5,
+      stageName: "DELIVERY",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 6,
+      stageName: "DELIVERED",
+    });
+  } else if (status == "WAREHOUSE") {
+    stages.push({
+      className: "stage-item completed",
+      count: 1,
+      stageName: "CREATED",
+    });
+    stages.push({
+      className: "stage-item active",
+      count: 2,
+      stageName: "WAREHOUSE",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 3,
+      stageName: "LOADING",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 4,
+      stageName: "LOADED",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 5,
+      stageName: "DELIVERY",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 6,
+      stageName: "DELIVERED",
+    });
+  } else if (status == "LOADING") {
+    stages.push({
+      className: "stage-item completed",
+      count: 1,
+      stageName: "CREATED",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 2,
+      stageName: "WAREHOUSE",
+    });
+    stages.push({
+      className: "stage-item active",
+      count: 3,
+      stageName: "LOADING",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 4,
+      stageName: "LOADED",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 5,
+      stageName: "DELIVERY",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 6,
+      stageName: "DELIVERED",
+    });
+  } else if (status == "LOADED") {
+    stages.push({
+      className: "stage-item completed",
+      count: 1,
+      stageName: "CREATED",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 2,
+      stageName: "WAREHOUSE",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 3,
+      stageName: "LOADING",
+    });
+    stages.push({
+      className: "stage-item active",
+      count: 4,
+      stageName: "LOADED",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 5,
+      stageName: "DELIVERY",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 6,
+      stageName: "DELIVERED",
+    });
+  } else if (status == "DELIVERY") {
+    stages.push({
+      className: "stage-item completed",
+      count: 1,
+      stageName: "CREATED",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 2,
+      stageName: "WAREHOUSE",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 3,
+      stageName: "LOADING",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 4,
+      stageName: "LOADED",
+    });
+    stages.push({
+      className: "stage-item active",
+      count: 5,
+      stageName: "DELIVERY",
+    });
+    stages.push({
+      className: "stage-item",
+      count: 6,
+      stageName: "DELIVERED",
+    });
+  } else if (status == "DELIVERED") {
+    stages.push({
+      className: "stage-item completed",
+      count: 1,
+      stageName: "CREATED",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 2,
+      stageName: "WAREHOUSE",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 3,
+      stageName: "LOADING",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 4,
+      stageName: "LOADED",
+    });
+    stages.push({
+      className: "stage-item completed",
+      count: 5,
+      stageName: "DELIVERY",
+    });
+    stages.push({
+      className: "stage-item active",
+      count: 6,
+      stageName: "DELIVERED",
+    });
+  }
+  return stages;
+}
 
 app.get("/users/packages/:packageid", checkNotAuth, (req, res) => {
   let items = [];
@@ -252,11 +466,27 @@ app.get("/users/packages/:packageid", checkNotAuth, (req, res) => {
           count: count,
         });
       }
-      console.log(items);
-      res.render("package", {
-        id: req.params.packageid,
-        items: items,
-      });
+      pool.query(
+        `SELECT status FROM package 
+        WHERE "packageId" = $1`,
+        [req.params.packageid],
+        (err, results) => {
+          if (err) throw err;
+          console.log(results.rows);
+          if (results.rowCount > 0) {
+            let { status } = results.rows[0];
+            console.log(status);
+            stages = getStages(status);
+            console.log(items);
+            res.render("package", {
+              id: req.params.packageid,
+              items: items,
+              status: status,
+              stages: stages,
+            });
+          }
+        }
+      );
     }
   );
 });
@@ -272,16 +502,29 @@ app.post("/users/packages/:packageid/changedest", checkNotAuth, (req, res) => {
     try {
       await client.query("BEGIN");
       await client.query(
-        `SELECT * FROM package WHERE "packageId" = $1 FOR UPDATE`,
-        [req.params.packageid]
+        `SELECT * FROM package WHERE "packageId" = $1 AND status!='DELIVERED' AND status!='DELIVERY' FOR UPDATE`,
+        [req.params.packageid],
+        async (err, results) => {
+          if (err) throw err;
+          console.log(results.rows);
+          if (results.rowCount > 0) {
+            await client.query(
+              `UPDATE package SET x=$1, y=$2 WHERE "packageId" = $3`,
+              [x, y, req.params.packageid]
+            );
+            await client.query("COMMIT");
+            req.flash("success_msg", "Change of destination successful");
+            res.render("changedest", { id: req.params.packageid });
+          } else {
+            await client.query("COMMIT");
+            req.flash(
+              "success_msg",
+              "Change of destination failed as package is out for delivery or is delivered"
+            );
+            res.render("changedest", { id: req.params.packageid });
+          }
+        }
       );
-      await client.query(
-        `UPDATE package SET x=$1, y=$2 WHERE "packageId" = $3`,
-        [x, y, req.params.packageid]
-      );
-      await client.query("COMMIT");
-      req.flash("success_msg", "Change of destination successful");
-      res.render("changedest", { id: req.params.packageid });
     } catch (e) {
       await client.query("ROLLBACK");
       throw e;
