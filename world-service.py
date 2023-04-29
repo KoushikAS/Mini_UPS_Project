@@ -337,8 +337,7 @@ def handle_UErr(UErr):
 
     packages = session.query(Package) \
         .filter(Package.truckId == order.truckId, Package.warehouseId == order.warehouseId, Package.status != PackageStatus.DELIVERED) \
-        .with_for_update() \
-        .scalar()
+        .with_for_update()
 
     for package in packages:
         package.status = PackageStatus.ERROR
