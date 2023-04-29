@@ -9,10 +9,15 @@ Koushik Annareddy Sreenath (ka266)
 Shravan Mysore Seethraman (sm952)
 
 ## Getting started
-To run the application 
+
+
+First run the  world simulator (https://github.com/yunjingliu96/world_simulator_exec)
+Update world-service with WORLD_HOST & AMAZON_HOST with the corresponding host address.  
+Run UPS applicaiton first by following below command. 
 
 ```
 docker-compose build
 docker-compose up -d
 ```
 
+Once UPS servers are up run the Amazon applicaiton. 
