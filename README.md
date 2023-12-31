@@ -21,8 +21,8 @@ This Mini-UPS project is a Python-based implementation of a simplified UPS-like 
 1. Clone the repository to your local machine:
 
 ```sh
-git clone https://github.com/KoushikAS/HTTP_Caching_Proxy.git
-cd HTTP_Caching_Proxy
+git clone https://github.com/KoushikAS/Mini_UPS_Project.git
+cd Mini_UPS_Project
 ```
 
 ### Getting started
