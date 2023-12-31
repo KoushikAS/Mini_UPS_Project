@@ -1,14 +1,31 @@
-# erss-project-ka266-sm952
+# Mini-UPS Project
 
-# Mini-Amazon / Mini-UPS project for ECE568 project
-We have developed Mini-UPS following the requirements of  https://sakai.duke.edu/access/content/attachment/f74215cd-4881-4c67-a401-0f9ed2057e60/Assignments/f39cee26-6d09-40ce-8566-a0d3f2b04c65/Project%20Spec%20v2.pdf
+## Overview
 
-#Authors 
+This Mini-UPS project is a Python-based implementation of a simplified UPS-like shipping system. It is designed to interact with a simulated world server, managing the logistics of package delivery through a network of warehouses and trucks. The project demonstrates handling real-time shipping operations, including package tracking, delivery status updates, and coordination with warehouses. This works in conjuction with Mini-Amazon and World Simulator.
 
-Koushik Annareddy Sreenath (ka266)
-Shravan Mysore Seethraman (sm952)
+## Features
 
-## Getting started
+- **Server Communication:** Connects to a simulated world server to manage package deliveries.
+- **Package Handling:** Processes package orders, including tracking, loading, and delivery.
+- **Real-time Status Updates:** Provides up-to-date information on package location and delivery status.
+- **Warehouse Coordination:** Manages interactions with warehouses for package pick-up and loading.
+- **Truck Fleet Management:** Controls a fleet of trucks for efficient package delivery.
+
+## Installation and Running
+
+### Prerequisites
+- Docker
+  
+### Installation
+1. Clone the repository to your local machine:
+
+```sh
+git clone https://github.com/KoushikAS/HTTP_Caching_Proxy.git
+cd HTTP_Caching_Proxy
+```
+
+### Getting started
 
 
 1) First run the  world simulator (https://github.com/yunjingliu96/world_simulator_exec)
@@ -23,3 +40,16 @@ docker-compose up -d
 ```
 
 4) Once UPS servers are up run the Amazon applicaiton. 
+
+
+## Contributions
+
+This project was completed as part of an academic assignment with requirments provided requirments.pdf. Contributions were made solely by Koushik Annareddy Sreenath, Shravan MS, adhering to the project guidelines and requirements set by the course ECE-568 Engineering Robust Server Software 
+
+## License
+
+This project is an academic assignment and is subject to university guidelines on academic integrity and software use.
+
+## Acknowledgments
+
+- Thanks to Brian Rogers and the course staff for providing guidance and support throughout the project.
